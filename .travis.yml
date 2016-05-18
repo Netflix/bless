@@ -1,0 +1,21 @@
+sudo: false
+
+language: python
+
+addons:
+
+matrix:
+  include:
+    - python: "2.7"
+
+install:
+  - make develop
+
+before_script:
+
+script:
+  - make test
+
+notifications:
+  email:
+    russelll@netflix.com

@@ -1,0 +1,170 @@
+![alt text](bless_logo.png "BLESS")
+# BLESS - Bastion's Lambda Ephemeral Ssh Service
+BLESS is an SSH Certificate Authority that runs as a AWS Lambda function and is used to sign ssh
+public keys.
+
+SSH Certificates are an excellent way to authorize users to access a particular ssh host,
+as they can be restricted for a single use case, and can be short lived.  Instead of managing the
+authorized_keys of a host, or controlling who has access to SSH Private Keys, hosts just
+need to be configured to trust an SSH CA.
+
+BLESS should be run as an AWS Lambda in an isolated AWS account.  Because BLESS needs access to a
+private key which is trusted by your hosts, an isolated AWS account helps restrict who can access
+that private key, or modify the BLESS code you are running.
+
+AWS Lambda functions can use an AWS IAM Policy to limit which IAM Roles can invoke the Lambda
+Function.  If properly configured, you can restrict which IAM Roles can request SSH Certificates.
+For example, your SSH Bastion (aka SSH Jump Host) can run with the only IAM Role with access to
+invoke a BLESS Lambda Function configured with the SSH CA key trusted by the instances accessible
+to that SSH Bastion.
+
+## Getting Started
+These instructions are to get BLESS up and running in your local development environment.
+### Installation Instructions
+Clone the repo:
+
+    $ git clone git@github.com:Netflix/bless.git
+
+Cd to the bless repo:
+
+    $ cd bless
+
+Create a virtualenv if you haven't already:
+
+    $ virtualenv venv
+
+Activate the venv:
+
+    $ source venv/bin/activate
+
+Install package and test dependencies:
+
+    (venv) $ make develop
+
+Run the tests:
+
+    (venv) $ make test
+
+
+## Deployment
+To deploy an AWS Lambda Function, you need to provide a .zip with the code and all dependencies.
+The .zip must contain your lambda code and configurations at the top level of the .zip.  The BLESS
+Makefile includes a publish target to package up everything into a deploy-able .zip if they are in
+the expected locations.
+
+### Compiling BLESS Lambda Dependencies
+AWS Lambda has some limitations, and to deploy code as a Lambda Function, you need to package up
+all of the dependencies.  AWS Lambda only supports Python 2.7 and BLESS depends on
+[Cryptography](https://cryptography.io/en/latest/), which must be compiled.  You will need to
+compile and include your dependencies before you can publish a working AWS Lambda.
+
+- Deploy an [Amazon Linux AMI](http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html)
+- SSH onto that instance
+- Copy BLESS' setup.py to the instance
+- Install BLESS' dependencies:
+```
+$ sudo yum install gcc libffi-devel openssl-devel
+$ virtualenv venv
+$ source venv/bin/activate
+(venv) $ pip install -e .
+```
+- From that instance, copy off the contents of:
+    - venv/lib/python2.7/site-packages/*
+    - venv/lib64/python2.7/site-packages/*
+
+- put those files in: ./aws-linux-libs/
+
+### Protecting the CA Private Key
+- Generate a password protected RSA Private Key:
+```
+$ ssh-keygen -t rsa -b 4096 -f bless-ca- -C "SSH CA Key"
+```
+- Use KMS to encrypt your password.  You will need a KMS key per region, and you will need to
+encrypt your password for each region.  You can use the AWS Console to paste in a simple lambda
+function like this:
+```
+import boto3
+import base64
+import os
+
+
+def lambda_handler(event, context):
+    region = os.environ['AWS_REGION']
+    client = boto3.client('kms', region_name=region)
+    response = client.encrypt(
+    KeyId='alias/your_kms_key',
+    Plaintext='Do not forget to delete the real plain text when done'
+    )
+
+    ciphertext = response['CiphertextBlob']
+    return base64.b64encode(ciphertext)
+```
+
+- Manage your Private Keys .pem files and passwords outside of this repo.
+- Update your bless_deploy.cfg with your Private Key's filename and encrypted passwords.
+- Provide your desired ./lambda_configs/ca_key_name.pem prior to Publishing a new Lambda .zip
+
+### BLESS Config File
+- Refer to the the [Example BLESS Config File](bless/config/bless_deploy_example.cfg) and its
+included documentation.
+- Manage your bless_deploy.cfg files outside of this repo.
+- Provide your desired ./lambda_configs/bless_deploy.cfg prior to Publishing a new Lambda .zip
+- The required [Bless CA] option values must be set for your environment.
+
+### Publish Lambda .zip
+- Provide your desired ./lambda_configs/ca_key_name.pem prior to Publishing
+- Provide your desired [BLESS Config File](bless/config/bless_deploy_example.cfg) at
+./lambda_configs/bless_deploy.cfg prior to Publishing
+- Provide the [compiled dependencies](#compiling-bless-lambda-dependencies) at ./aws-linux-libs
+- run:
+```
+(venv) $ make publish
+```
+
+- deploy ./publish/bless_lambda.zip to AWS via the AWS Console,
+[AWS SDK](http://boto3.readthedocs.io/en/latest/reference/services/lambda.html), or
+[S3](https://aws.amazon.com/blogs/compute/new-deployment-options-for-aws-lambda/)
+- remember to deploy it to all regions.
+
+
+### Lambda Requirements
+You should deploy this function into its own AWS account to limit who has access to modify the
+code, configs, or IAM Policies.  An isolated account also limits who has access to the KMS keys
+used to protect the SSH CA Key.
+
+The BLESS Lambda function should run as its own IAM Role and will need access to an AWS KMS Key in
+each region where the function is deployed.  The BLESS IAMRole will also need permissions to obtain
+random from kms (kms:GenerateRandom) and permissions for logging to CloudWatch Logs
+(logs:CreateLogGroup,logs:CreateLogStream,logs:PutLogEvents).
+
+## Using BLESS
+After you have [deployed BLESS](#deployment) you can run the sample [BLESS Client](bless_client/bless_client.py)
+from a system with access to the required [AWS Credentials](http://boto3.readthedocs.io/en/latest/guide/configuration.html).
+
+    (venv) $ ./bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_username bastion_source_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>
+
+
+## Verifying Certificates
+You can inspect the contents of a certificate with ssh-keygen directly:
+
+    $ ssh-keygen -L -f your-cert.pub
+
+## Enabling BLESS Certificates On Servers
+Add the following line to /etc/ssh/sshd_config:
+
+    TrustedUserCAKeys /etc/ssh/cas.pub
+
+Add a new file, owned by and only writable by root, at /etc/ssh/cas.pub with the contents:
+
+    ssh-rsa AAAAB3NzaC1yc2EAAAADAQ…  #id_rsa.pub of an SSH CA
+    ssh-rsa AAAAB3NzaC1yc2EAAAADAQ…  #id_rsa.pub of an offline SSH CA
+    ssh-rsa AAAAB3NzaC1yc2EAAAADAQ…  #id_rsa.pub of an offline SSH CA 2
+
+To simplify SSH CA Key rotation you should provision multiple CA Keys, and leave them offline until
+you are ready to rotate them.
+
+Additional information about the TrustedUserCAKeys file is [here](https://www.freebsd.org/cgi/man.cgi?sshd_config(5))
+
+## Project resources
+- Source code <https://github.com/netflix/bless>
+- Issue tracker <https://github.com/netflix/bless/issues>
