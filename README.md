@@ -1,5 +1,7 @@
 ![alt text](bless_logo.png "BLESS")
 # BLESS - Bastion's Lambda Ephemeral Ssh Service
+
+[![Join the chat at https://gitter.im/Netflix/bless](https://badges.gitter.im/Netflix/bless.svg)](https://gitter.im/Netflix/bless?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 BLESS is an SSH Certificate Authority that runs as a AWS Lambda function and is used to sign ssh
 public keys.
 
