@@ -61,7 +61,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     ca_private_key_file = ca_private_key_file.strip('"')
 
     # read the private key .pem
-    with open(ca_private_key_file, 'r') as f:
+    with open(os.path.join(os.path.dirname(__file__), ca_private_key_file), 'r') as f:
         ca_private_key = f.read()
 
     # decrypt ca private key password
