@@ -56,10 +56,6 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     ca_private_key_file = config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
     password_ciphertext_b64 = config.getpassword()
 
-    # Strip quotes from private key file path.
-    ca_private_key_file = ca_private_key_file.strip("'")
-    ca_private_key_file = ca_private_key_file.strip('"')
-
     # read the private key .pem
     with open(os.path.join(os.path.dirname(__file__), ca_private_key_file), 'r') as f:
         ca_private_key = f.read()
