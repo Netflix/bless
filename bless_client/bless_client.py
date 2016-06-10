@@ -6,7 +6,6 @@ Usage:
   bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_username bastion_source_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>
 
 """
-import base64
 import json
 import sys
 
@@ -19,7 +18,8 @@ def main(argv):
             'Usage: bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_username bastion_source_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>')
         return -1
 
-    if 'AWS_SECRET_ACCESS_KEY' not in os.environ:
+    credentials_file = os.path.join(os.environ['HOME'], '.aws', 'credentials')
+    if 'AWS_SECRET_ACCESS_KEY' not in os.environ and not os.path.isfile(credentials_file):
         print ('You need AWS credentials in your environment')
         return -1
 
@@ -36,8 +36,8 @@ def main(argv):
     print('Executing:')
     lambda_client = boto3.client('lambda', region_name=region)
     response = lambda_client.invoke(FunctionName=argv[1], InvocationType='RequestResponse',
-                                    LogType='Tail', Payload=payload_json)
-    print('{}\n\n{}'.format(response['ResponseMetadata'], base64.b64decode(response['LogResult'])))
+                                    LogType='None', Payload=payload_json)
+    print('{}\n\n'.format(response['ResponseMetadata']))
 
     if response['StatusCode'] != 200:
         print ('Error creating cert.')
