@@ -6,7 +6,6 @@ Usage:
   bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_username bastion_source_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>
 
 """
-import base64
 import json
 import sys
 
@@ -38,7 +37,7 @@ def main(argv):
     lambda_client = boto3.client('lambda', region_name=region)
     response = lambda_client.invoke(FunctionName=argv[1], InvocationType='RequestResponse',
                                     LogType='None', Payload=payload_json)
-    print('{}\n\n{}'.format(response['ResponseMetadata'], base64.b64decode(response['LogResult'])))
+    print('{}\n\n'.format(response['ResponseMetadata']))
 
     if response['StatusCode'] != 200:
         print ('Error creating cert.')
