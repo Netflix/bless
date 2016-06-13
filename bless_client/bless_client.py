@@ -30,7 +30,6 @@ Usage:
         "ssh will also try to load certificate information from the filename
         obtained by appending -cert.pub to identity filenames" e.g.  the <id_rsa.pub to sign>.
 """
-import base64
 import json
 import stat
 import sys
@@ -54,7 +53,7 @@ def main(argv):
         public_key = f.read()
 
     payload = {'bastion_user': bastion_user, 'bastion_user_ip': bastion_user_ip,
-               'remote_username': remote_username, 'bastion_ip': bastion_ip,
+               'remote_username': remote_username, 'bastion_ips': bastion_ip,
                'command': bastion_command, 'public_key_to_sign': public_key}
 
     if len(argv) == 10:
