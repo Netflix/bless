@@ -105,13 +105,13 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
         context.aws_request_id, request.bastion_user, request.bastion_user_ip, request.command,
         cert_builder.ssh_public_key.fingerprint, context.invoked_function_arn,
         time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
-    cert_builder.set_critical_option_source_address(request.bastion_ip)
+    cert_builder.set_critical_option_source_address('{},{}'.format(request.bastion_user_ip, request.bastion_ips))
     cert_builder.set_key_id(key_id)
     cert = cert_builder.get_cert_file()
 
     logger.info(
-        'Issued a cert to bastion_ip[{}] for the remote_username of [{}] with the key_id[{}] and '
+        'Issued a cert to bastion_ips[{}] for the remote_username of [{}] with the key_id[{}] and '
         'valid_from[{}])'.format(
-            request.bastion_ip, request.remote_username, key_id,
+            request.bastion_ips, request.remote_username, key_id,
             time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_after))))
     return cert
