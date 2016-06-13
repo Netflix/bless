@@ -15,7 +15,7 @@ VALID_TEST_REQUEST = {
     "remote_username": "user",
     "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
     "command": "ssh user@server",
-    "bastion_ip": "127.0.0.1",
+    "bastion_ips": "127.0.0.1",
     "bastion_user": "user",
     "bastion_user_ip": "127.0.0.1"
 }
@@ -79,7 +79,7 @@ def test_local_request_invalid_pub_key():
         "remote_username": "user",
         "public_key_to_sign": EXAMPLE_ED25519_PUBLIC_KEY,
         "command": "ssh user@server",
-        "bastion_ip": "127.0.0.1",
+        "bastion_ips": "127.0.0.1",
         "bastion_user": "user",
         "bastion_user_ip": "127.0.0.1"
     }
