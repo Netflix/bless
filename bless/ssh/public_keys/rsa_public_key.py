@@ -33,8 +33,6 @@ def check_small_primes(n):
         719, 727, 733, 739, 743, 751
     ]
     for prime in small_primes:
-        if prime >= n:
-            return False
         if (n % prime == 0):
             return True
     return False
