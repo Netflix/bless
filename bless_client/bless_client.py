@@ -40,11 +40,11 @@ import os
 
 
 def main(argv):
-    if len(argv) != 9:
+    if len(argv) < 9 or len(argv) > 10:
         print (
             'Usage: bless_client.py region lambda_function_name bastion_user bastion_user_ip '
             'remote_username bastion_ip bastion_command <id_rsa.pub to sign> '
-            '<output id_rsa-cert.pub>')
+            '<output id_rsa-cert.pub> [kmsauth token]')
         return -1
 
     region, lambda_function_name, bastion_user, bastion_user_ip, remote_username, bastion_ip, \
@@ -56,9 +56,14 @@ def main(argv):
     payload = {'bastion_user': bastion_user, 'bastion_user_ip': bastion_user_ip,
                'remote_username': remote_username, 'bastion_ip': bastion_ip,
                'command': bastion_command, 'public_key_to_sign': public_key}
+
+    if len(argv) == 10:
+        payload['kmsauth_token'] = argv[9]
+
     payload_json = json.dumps(payload)
 
     print('Executing:')
+    print('payload_json is: \'{}\''.format(payload_json))
     lambda_client = boto3.client('lambda', region_name=region)
     response = lambda_client.invoke(FunctionName=lambda_function_name,
                                     InvocationType='RequestResponse', LogType='None',

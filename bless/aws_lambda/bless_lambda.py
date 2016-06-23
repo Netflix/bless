@@ -9,9 +9,10 @@ import time
 
 import boto3
 import os
+import kmsauth
 from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION, ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
-    BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION
+    BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION, KMSAUTH_KEY_ID_OPTION
 from bless.request.bless_request import BlessSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
@@ -55,6 +56,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     random_seed_bytes = config.getint(BLESS_OPTIONS_SECTION, RANDOM_SEED_BYTES_OPTION)
     ca_private_key_file = config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
     password_ciphertext_b64 = config.getpassword()
+    kmsauth_key_id = config.get(BLESS_CA_SECTION, KMSAUTH_KEY_ID_OPTION)
 
     # read the private key .pem
     with open(os.path.join(os.path.dirname(__file__), ca_private_key_file), 'r') as f:
@@ -91,6 +93,21 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     current_time = int(time.time())
     valid_before = current_time + certificate_validity_window_seconds
     valid_after = current_time - certificate_validity_window_seconds
+
+    # Authenticate the user with KMS, if key is setup
+    if (kmsauth_key_id):
+        if (request.kmsauth_token):
+            validator = kmsauth.KMSTokenValidator(
+                kmsauth_key_id,
+                kmsauth_key_id,
+                # TODO
+                'confidant-production-iad',
+                region
+            )
+            # decrypt_token will raise a TokenValidationError if token doesn't match
+            validator.decrypt_token("2/user/{}".format(request.remote_username), request.kmsauth_token)
+        else:
+            raise ValueError('Invalid request, missing kmsauth token')
 
     # Build the cert
     ca = get_ssh_certificate_authority(ca_private_key, ca_private_key_password)
