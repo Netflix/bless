@@ -32,7 +32,8 @@ setup(
         'pyasn1==0.1.9',
         'pycparser==2.14',
         'python-dateutil==2.5.3',
-        'six==1.10.0'
+        'six==1.10.0',
+        'kmsauth==0.1.4'
     ],
     extras_require={
         'tests': [
