@@ -1,0 +1,12 @@
+BLESS - Bastion's Lambda Ephemeral Ssh Service
+Copyright 2016 Netflix, Inc.
+
+Portions of bless.ssh.public_keys module's validate_for_signing logic are based
+on letsencrypt's boulder from https://github.com/letsencrypt/boulder
+Copyright 2016 ISRG.  All rights reserved.
+
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
