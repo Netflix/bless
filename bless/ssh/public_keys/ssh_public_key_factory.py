@@ -14,6 +14,8 @@ def get_ssh_public_key(ssh_public_key):
     :return: An SSHPublicKey instance.
     """
     if ssh_public_key.startswith(SSHPublicKeyType.RSA):
-        return RSAPublicKey(ssh_public_key)
+        rsa_public_key = RSAPublicKey(ssh_public_key)
+        rsa_public_key.validate_for_signing()
+        return rsa_public_key
     else:
         raise TypeError("Unsupported Public Key Type")
