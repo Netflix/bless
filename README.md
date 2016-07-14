@@ -76,7 +76,7 @@ $ source venv/bin/activate
     - venv/lib/python2.7/site-packages/*
     - venv/lib64/python2.7/site-packages/*
 
-- put those files in: ./aws-linux-libs/
+- put those files in: ./aws_lambda_libs/
 
 ### Protecting the CA Private Key
 - Generate a password protected RSA Private Key:

@@ -31,9 +31,8 @@ publish:
 	mkdir -p ./publish/bless_lambda
 	cp -r ./bless ./publish/bless_lambda/
 	mv ./publish/bless_lambda/bless/aws_lambda/* ./publish/bless_lambda/
-	cp -r ./aws_lambda_libs/ ./publish/bless_lambda/
-	cp -r ./lambda_configs/ ./publish/bless_lambda/
-	rm ./publish/bless_lambda/place_cfg_and_pem_here ./publish/bless_lambda/place_compiled_dependencies_here
+	cp -r ./aws_lambda_libs/* ./publish/bless_lambda/
+	cp -r ./lambda_configs/* ./publish/bless_lambda/
 	cd ./publish/bless_lambda && zip -r ../bless_lambda.zip .
 
 .PHONY: develop dev-docs clean test lint coverage publish
