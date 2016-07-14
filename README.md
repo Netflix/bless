@@ -62,12 +62,14 @@ compile and include your dependencies before you can publish a working AWS Lambd
 
 - Deploy an [Amazon Linux AMI](http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html)
 - SSH onto that instance
-- Copy BLESS' setup.py to the instance
+- Copy BLESS' `setup.py` to the instance
+- Copy BLESS' `bless/__about__.py` to the instance at `bless/__about__.py`
 - Install BLESS' dependencies:
 ```
 $ sudo yum install gcc libffi-devel openssl-devel
 $ virtualenv venv
 $ source venv/bin/activate
+(venv) $ pip install --upgrade pip
 (venv) $ pip install -e .
 ```
 - From that instance, copy off the contents of:
