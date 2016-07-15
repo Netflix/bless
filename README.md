@@ -69,13 +69,14 @@ compile and include your dependencies before you can publish a working AWS Lambd
 $ sudo yum install gcc libffi-devel openssl-devel
 $ virtualenv venv
 $ source venv/bin/activate
-(venv) $ pip install --upgrade pip
+(venv) $ pip install --upgrade pip setuptools
 (venv) $ pip install -e .
 ```
 - From that instance, copy off the contents of:
-    - venv/lib/python2.7/site-packages/*
-    - venv/lib64/python2.7/site-packages/*
-
+```
+$ cp -r venv/lib/python2.7/site-packages/. aws_lambda_libs
+$ cp -r venv/lib64/python2.7/site-packages/. aws_lambda_libs
+```
 - put those files in: ./aws_lambda_libs/
 
 ### Protecting the CA Private Key
