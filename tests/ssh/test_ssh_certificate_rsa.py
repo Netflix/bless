@@ -5,7 +5,7 @@ from bless.ssh.certificate_authorities.rsa_certificate_authority import RSACerti
 from bless.ssh.certificates.rsa_certificate_builder import RSACertificateBuilder
 from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
 from bless.ssh.public_keys.rsa_public_key import RSAPublicKey
-from cryptography.hazmat.primitives.serialization import _read_next_string
+from cryptography.hazmat.primitives.serialization import _ssh_read_next_string
 from tests.ssh.vectors import RSA_CA_PRIVATE_KEY, RSA_CA_PRIVATE_KEY_PASSWORD, \
     EXAMPLE_RSA_PUBLIC_KEY, EXAMPLE_RSA_PUBLIC_KEY_NO_DESCRIPTION, RSA_USER_CERT_MINIMAL, \
     RSA_USER_CERT_DEFAULTS, RSA_USER_CERT_DEFAULTS_NO_PUBLIC_KEY_COMMENT, \
@@ -35,8 +35,8 @@ def get_basic_cert_builder_rsa(cert_type=SSHCertificateType.USER,
 
 def extract_nonce_from_cert(cert_file):
     cert = cert_file.split(' ')[1]
-    cert_type, cert_remainder = _read_next_string(base64.b64decode(cert))
-    nonce, cert_remainder = _read_next_string(cert_remainder)
+    cert_type, cert_remainder = _ssh_read_next_string(base64.b64decode(cert))
+    nonce, cert_remainder = _ssh_read_next_string(cert_remainder)
     return nonce
 
 
