@@ -119,7 +119,7 @@ included documentation.
 - Provide your desired ./lambda_configs/ca_key_name.pem prior to Publishing
 - Provide your desired [BLESS Config File](bless/config/bless_deploy_example.cfg) at
 ./lambda_configs/bless_deploy.cfg prior to Publishing
-- Provide the [compiled dependencies](#compiling-bless-lambda-dependencies) at ./aws-linux-libs
+- Provide the [compiled dependencies](#compiling-bless-lambda-dependencies) at ./aws_lambda_libs
 - run:
 ```
 (venv) $ make publish
