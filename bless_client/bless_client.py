@@ -19,10 +19,6 @@ def main(argv):
             'Usage: bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_username bastion_source_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>')
         return -1
 
-    if 'AWS_SECRET_ACCESS_KEY' not in os.environ:
-        print ('You need AWS credentials in your environment')
-        return -1
-
     region = argv[0]
 
     with open(argv[7], 'r') as f:
