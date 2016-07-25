@@ -1,12 +1,15 @@
 import pytest
-from bless.request.bless_request import validate_ip, validate_user
+from bless.request.bless_request import validate_ips, validate_user
 from marshmallow import ValidationError
 
 
-def test_validate_ip():
-    validate_ip(u'127.0.0.1')
+def test_validate_ips():
+    validate_ips(u'127.0.0.1')
     with pytest.raises(ValidationError):
-        validate_ip(u'256.0.0.0')
+        validate_ips(u'256.0.0.0')
+    validate_ips(u'127.0.0.1,172.1.1.1')
+    with pytest.raises(ValidationError):
+        validate_ips(u'256.0.0.0,172.1.1.1')
 
 
 def test_validate_user_too_long():
@@ -25,6 +28,7 @@ def test_validate_user_contains_junk(test_input):
     with pytest.raises(ValidationError) as e:
         validate_user(test_input)
     assert e.value.message == 'Username contains invalid characters'
+
 
 @pytest.mark.parametrize("test_input", [
     ('uservalid'),

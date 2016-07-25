@@ -11,9 +11,10 @@ from marshmallow import Schema, fields, post_load, ValidationError
 USERNAME_PATTERN = re.compile('[a-z_][a-z0-9_-]*[$]?\Z')
 
 
-def validate_ip(ip):
+def validate_ips(ips):
     try:
-        ipaddress.ip_address(ip)
+        for ip in ips.split(','):
+            ipaddress.ip_address(ip)
     except ValueError:
         raise ValidationError('Invalid IP address.')
 
@@ -26,9 +27,9 @@ def validate_user(user):
 
 
 class BlessSchema(Schema):
-    bastion_ip = fields.Str(validate=validate_ip)
+    bastion_ips = fields.Str(validate=validate_ips)
     bastion_user = fields.Str(validate=validate_user)
-    bastion_user_ip = fields.Str(validate=validate_ip)
+    bastion_user_ip = fields.Str(validate=validate_ips)
     command = fields.Str()
     public_key_to_sign = fields.Str()
     remote_username = fields.Str(validate=validate_user)
@@ -39,11 +40,11 @@ class BlessSchema(Schema):
 
 
 class BlessRequest:
-    def __init__(self, bastion_ip, bastion_user, bastion_user_ip, command, public_key_to_sign,
+    def __init__(self, bastion_ips, bastion_user, bastion_user_ip, command, public_key_to_sign,
                  remote_username):
         """
         A BlessRequest must have the following key value pairs to be valid.
-        :param bastion_ip: The source IP where the ssh connection will be initiated from.  This is
+        :param bastion_ips: The source IPs where the ssh connection will be initiated from.  This is
         enforced in the issued certificate.
         :param bastion_user: The user on the bastion, who is initiating the ssh request.
         :param bastion_user_ip: The IP of the user accessing the bastion.
@@ -53,7 +54,7 @@ class BlessRequest:
         :param remote_username: The username on the remote server that will be used in the ssh
         request.  This is enforced in the issued certificate.
         """
-        self.bastion_ip = bastion_ip
+        self.bastion_ips = bastion_ips
         self.bastion_user = bastion_user
         self.bastion_user_ip = bastion_user_ip
         self.command = command
