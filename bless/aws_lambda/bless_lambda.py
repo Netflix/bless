@@ -101,7 +101,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                 kmsauth_key_id,
                 kmsauth_key_id,
                 # TODO
-                'confidant-production-iad',
+                'bless-production-iad',
                 region
             )
             # decrypt_token will raise a TokenValidationError if token doesn't match
