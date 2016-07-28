@@ -43,14 +43,14 @@ class BlessRequest:
                  remote_username):
         """
         A BlessRequest must have the following key value pairs to be valid.
-        :param bastion_ip: The source IP where the ssh connection will be initiated from.  This is
+        :param bastion_ip: The source IP where the SSH connection will be initiated from.  This is
         enforced in the issued certificate.
-        :param bastion_user: The user on the bastion, who is initiating the ssh request.
+        :param bastion_user: The user on the bastion, who is initiating the SSH request.
         :param bastion_user_ip: The IP of the user accessing the bastion.
-        :param command: Text information about the ssh request of the user.
-        :param public_key_to_sign: The id_rsa.pub that will be used in the ssh request.  This is
+        :param command: Text information about the SSH request of the user.
+        :param public_key_to_sign: The id_rsa.pub that will be used in the SSH request.  This is
         enforced in the issued certificate.
-        :param remote_username: The username on the remote server that will be used in the ssh
+        :param remote_username: The username on the remote server that will be used in the SSH
         request.  This is enforced in the issued certificate.
         """
         self.bastion_ip = bastion_ip

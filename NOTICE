@@ -1,4 +1,4 @@
-BLESS - Bastion's Lambda Ephemeral Ssh Service
+BLESS - Bastion's Lambda Ephemeral SSH Service
 Copyright 2016 Netflix, Inc.
 
 Portions of bless.ssh.public_keys module's validate_for_signing logic are based
