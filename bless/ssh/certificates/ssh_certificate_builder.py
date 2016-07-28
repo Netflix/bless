@@ -133,7 +133,7 @@ class SSHCertificateBuilder(object):
     def set_critical_option_force_command(self, command):
         """
         Sets a command that will be executed whenever this SSH Certificate is used for
-        authentication.  This will replace any command specified by the ssh command.
+        authentication.  This will replace any command specified by the SSH command.
         :param command: String of the program (and arguments) to run on the remote host.
         """
         if command:

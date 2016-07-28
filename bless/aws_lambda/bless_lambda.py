@@ -100,7 +100,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     cert_builder.set_valid_before(valid_before)
     cert_builder.set_valid_after(valid_after)
 
-    # cert_builder is needed to obtain the ssh public key's fingerprint
+    # cert_builder is needed to obtain the SSH public key's fingerprint
     key_id = 'request[{}] for[{}] from[{}] command[{}] ssh_key:[{}]  ca:[{}] valid_to[{}]'.format(
         context.aws_request_id, request.bastion_user, request.bastion_user_ip, request.command,
         cert_builder.ssh_public_key.fingerprint, context.invoked_function_arn,
