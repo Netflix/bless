@@ -7,5 +7,4 @@ htmlcov/
 libs/
 publish/
 venv/
-aws_lambda_libs/
 lambda_configs/

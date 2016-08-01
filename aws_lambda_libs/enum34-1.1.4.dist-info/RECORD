@@ -1,0 +1,17 @@
+enum/LICENSE,sha256=iOxqbI6vo7l1fnRXg5OL7z9eTV48drHbV2qjq1IOXh0,1508
+enum/README,sha256=fyStyG6c3wxR2bHyZhLPNtc_ASDxGw-l8G6LzVxmkig,157
+enum/__init__.py,sha256=ahdZPVS0I4uIBXAoWOAqEu0MaUI52YAlNv21O8KB4do,30981
+enum/enum.py,sha256=ahdZPVS0I4uIBXAoWOAqEu0MaUI52YAlNv21O8KB4do,30981
+enum/py35_test_enum.py,sha256=TJCoy-BRGAOt5LeCNui_BMWHjmHq76Mbu3uyFj_SgRc,61179
+enum/test.py,sha256=UHUAyfCz27UdHO9ohuicvdrKVqG59y9gFZzDuA8yQqQ,67051
+enum/doc/enum.pdf,sha256=7krOLXjtq8uRSCCO3lL_-dXmCNwJ9bHNgVMAmkkJ_Xg,70194
+enum/doc/enum.rst,sha256=CuhVuKITGoDN8XYor88af48cx03MqJCb19RWLDlJA5k,22448
+enum34-1.1.4.dist-info/DESCRIPTION.rst,sha256=d1LpTdx9M07jJN0AmT-p6AAwLrX2guxOfmetcp_jljY,817
+enum34-1.1.4.dist-info/METADATA,sha256=HWETkcbbQA_GvyUL1dNvtcC9Kwy2P443KkiuMKpGGno,1587
+enum34-1.1.4.dist-info/RECORD,,
+enum34-1.1.4.dist-info/WHEEL,sha256=GrqQvamwgBV4nLoJe0vhYRSWzWsx7xjlt74FT0SWYfE,110
+enum34-1.1.4.dist-info/metadata.json,sha256=jFFJZCCKMPtApTo8pohh4t7--O8xiA4ViUOPuuFgHNQ,888
+enum34-1.1.4.dist-info/top_level.txt,sha256=jayVFfXRwPLUdgRN9GzacnFrOtEKQaAScXIY8mwgP8g,5
+enum/test.pyc,,
+enum/enum.pyc,,
+enum/__init__.pyc,,
