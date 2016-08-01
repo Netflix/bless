@@ -1,0 +1,9 @@
+[console_scripts]
+flake8 = flake8.main:main
+
+[distutils.commands]
+flake8 = flake8.main:Flake8Command
+
+[flake8.extension]
+F = flake8._pyflakes:FlakesChecker
+
