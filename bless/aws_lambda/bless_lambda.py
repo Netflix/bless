@@ -31,6 +31,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     decrypt.
     :param entropy_check: For local testing, if set to false, it will skip checking entropy and
     won't try to fetch additional random from KMS
+    :param certificate_type: Type of certificate to be generated
     :param config_file: The config file to load the SSH CA private key from, and additional settings
     :return: the SSH Certificate that can be written to id_rsa-cert.pub or similar file.
     """
