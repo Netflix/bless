@@ -20,7 +20,7 @@ from bless.ssh.certificates.ssh_certificate_builder_factory import get_ssh_certi
 
 
 def lambda_handler(event, context=None, ca_private_key_password=None,
-                   entropy_check=True,
+                   entropy_check=True, certificate_type=SSHCertificateType.USER,
                    config_file=os.path.join(os.path.dirname(__file__), 'bless_deploy.cfg')):
     """
     This is the function that will be called when the lambda function starts.
@@ -94,7 +94,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
 
     # Build the cert
     ca = get_ssh_certificate_authority(ca_private_key, ca_private_key_password)
-    cert_builder = get_ssh_certificate_builder(ca, SSHCertificateType.USER,
+    cert_builder = get_ssh_certificate_builder(ca, certificate_type,
                                                request.public_key_to_sign)
     cert_builder.add_valid_principal(request.remote_username)
     cert_builder.set_valid_before(valid_before)
