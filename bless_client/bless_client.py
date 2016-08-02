@@ -64,9 +64,9 @@ def main(argv):
     print('Executing:')
     lambda_client = boto3.client('lambda', region_name=region)
     response = lambda_client.invoke(FunctionName=lambda_function_name,
-                                    InvocationType='RequestResponse', LogType='Tail',
+                                    InvocationType='RequestResponse', LogType='None',
                                     Payload=payload_json)
-    print('{}\n\n{}'.format(response['ResponseMetadata'], base64.b64decode(response['LogResult'])))
+    print('{}\n'.format(response['ResponseMetadata']))
 
     if response['StatusCode'] != 200:
         print ('Error creating cert.')
