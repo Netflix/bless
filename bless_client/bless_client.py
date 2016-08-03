@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 
 """bless_client
+A sample client to invoke the BLESS Lambda function and save the signed SSH Certificate.
 
 Usage:
-  bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_username bastion_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>
+  bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_username
+  bastion_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>
 
-    region: AWS region where your lambda is deployed
+    region: AWS region where your lambda is deployed.
 
-    lambda_function_name: The AWS Lambda function's alias or ARN to invoke
+    lambda_function_name: The AWS Lambda function's alias or ARN to invoke.
 
     bastion_user: The user on the bastion, who is initiating the SSH request.
 
@@ -26,7 +28,7 @@ Usage:
 
     output id_rsa-cert.pub: The file where the certificate should be saved.  Per man SSH(1):
         "ssh will also try to load certificate information from the filename
-        obtained by appending -cert.pub to identity filenames" e.g.  the <id_rsa.pub to sign>
+        obtained by appending -cert.pub to identity filenames" e.g.  the <id_rsa.pub to sign>.
 """
 import base64
 import json
@@ -40,18 +42,13 @@ import os
 def main(argv):
     if len(argv) != 9:
         print (
-            'Usage: bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_username bastion_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>')
+            'Usage: bless_client.py region lambda_function_name bastion_user bastion_user_ip '
+            'remote_username bastion_ip bastion_command <id_rsa.pub to sign> '
+            '<output id_rsa-cert.pub>')
         return -1
 
-    region = argv[0]
-    lambda_function_name = argv[1]
-    bastion_user = argv[2]
-    bastion_user_ip = argv[3]
-    remote_username = argv[4]
-    bastion_ip = argv[5]
-    bastion_command = argv[6]
-    public_key_filename = argv[7]
-    certificate_filename = argv[8]
+    region, lambda_function_name, bastion_user, bastion_user_ip, remote_username, bastion_ip, \
+    bastion_command, public_key_filename, certificate_filename = argv
 
     with open(public_key_filename, 'r') as f:
         public_key = f.read()
@@ -74,8 +71,8 @@ def main(argv):
 
     cert = response['Payload'].read()
 
-    flags = os.O_WRONLY | os.O_CREAT
-    with os.fdopen(os.open(certificate_filename, flags, 0o600), 'w') as cert_file:
+    with os.fdopen(os.open(certificate_filename, os.O_WRONLY | os.O_CREAT, 0o600),
+                   'w') as cert_file:
         cert_file.write(cert[1:len(cert) - 3])
 
     # If cert_file already existed with the incorrect permissions, fix them.
