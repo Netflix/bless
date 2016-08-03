@@ -3,8 +3,7 @@ import pytest
 
 from bless.aws_lambda.bless_lambda import lambda_handler
 from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
-from tests.ssh.vectors import EXAMPLE_RSA_PUBLIC_KEY, RSA_CA_PRIVATE_KEY_PASSWORD, \
-    EXAMPLE_ED25519_PUBLIC_KEY
+from tests.ssh.vectors import EXAMPLE_RSA_PUBLIC_KEY, RSA_CA_PRIVATE_KEY_PASSWORD
 
 
 class Context(object):
