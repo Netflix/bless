@@ -14,10 +14,6 @@ class Context(object):
 VALID_TEST_REQUEST = {
     "remote_hostnames": ["example.com", "example1.com"],
     "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
-    "command": "ssh user@server",
-    "bastion_ip": "127.0.0.1",
-    "bastion_user": "user",
-    "bastion_user_ip": "127.0.0.1"
 }
 
 os.environ['AWS_REGION'] = 'us-west-2'

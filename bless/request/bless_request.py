@@ -34,10 +34,6 @@ def validate_host(hostname):
 
 
 class BlessSchema(Schema):
-    bastion_ip = fields.Str(validate=validate_ip)
-    bastion_user = fields.Str(validate=validate_user)
-    bastion_user_ip = fields.Str(validate=validate_ip)
-    command = fields.Str()
     public_key_to_sign = fields.Str()
 
     @post_load
@@ -46,16 +42,42 @@ class BlessSchema(Schema):
 
 
 class BlessUserSchema(BlessSchema):
+    bastion_ip = fields.Str(validate=validate_ip)
+    bastion_user = fields.Str(validate=validate_user)
+    bastion_user_ip = fields.Str(validate=validate_ip)
+    command = fields.Str()
     remote_username = fields.Str(validate=validate_user)
+
+    @post_load
+    def make_bless_request(self, data):
+        return BlessUserRequest(**data)
 
 
 class BlessHostSchema(BlessSchema):
     remote_hostnames = fields.List(fields.Str())
 
+    @post_load
+    def make_bless_request(self, data):
+        return BlessHostRequest(**data)
+
 
 class BlessRequest:
+    def __init__(self, public_key_to_sign):
+        """
+        A BlessRequest must have the following key value pairs to be valid.
+        :param public_key_to_sign: The id_rsa.pub that will be used in the SSH request.  This is
+        enforced in the issued certificate.
+        """
+
+        self.public_key_to_sign = public_key_to_sign
+
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+
+class BlessUserRequest(BlessRequest):
     def __init__(self, bastion_ip, bastion_user, bastion_user_ip, command, public_key_to_sign,
-                 remote_username=None, remote_hostnames=None):
+                 remote_username):
         """
         A BlessRequest must have the following key value pairs to be valid.
         :param bastion_ip: The source IP where the SSH connection will be initiated from.  This is
@@ -66,12 +88,7 @@ class BlessRequest:
         :param public_key_to_sign: The id_rsa.pub that will be used in the SSH request.  This is
         enforced in the issued certificate.
         :param remote_username: The username on the remote server that will be used in the SSH
-        :param remote_hostnames: A list of hostnames on the server for which the certificate is valid
-        request.  This is enforced in the issued certificate.
         """
-
-        if remote_username is None and remote_hostnames is None:
-            raise ValidationError('Username or hostnames must be provided')
 
         self.bastion_ip = bastion_ip
         self.bastion_user = bastion_user
@@ -79,7 +96,19 @@ class BlessRequest:
         self.command = command
         self.public_key_to_sign = public_key_to_sign
         self.remote_username = remote_username
-        self.remote_hostnames = remote_hostnames
 
-    def __eq__(self, other):
-        return self.__dict__ == other.__dict__
+
+class BlessHostRequest(BlessRequest):
+    def __init__(self, public_key_to_sign, remote_hostnames):
+        """
+        A BlessRequest must have the following key value pairs to be valid.
+        :param bastion_ip: The source IP where the SSH connection will be initiated from.  This is
+        enforced in the issued certificate.
+        :param public_key_to_sign: The id_rsa.pub that will be used in the SSH request.  This is
+        enforced in the issued certificate.
+        :param remote_hostnames: A list of hostnames on the server for which the certificate is valid
+        request. This is enforced in the issued certificate.
+        """
+
+        self.public_key_to_sign = public_key_to_sign
+        self.remote_hostnames = remote_hostnames

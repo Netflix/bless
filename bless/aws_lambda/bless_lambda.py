@@ -102,30 +102,37 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                                                request.public_key_to_sign)
     if certificate_type == SSHCertificateType.USER:
         cert_builder.add_valid_principal(request.remote_username)
+        # cert_builder is needed to obtain the SSH public key's fingerprint
+        key_id = 'request[{}] for[{}] from[{}] command[{}] ssh_key:[{}]  ca:[{}] valid_to[{}]'.format(
+            context.aws_request_id, request.bastion_user, request.bastion_user_ip, request.command,
+            cert_builder.ssh_public_key.fingerprint, context.invoked_function_arn,
+            time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
+        cert_builder.set_critical_option_source_address(request.bastion_ip)
     elif certificate_type == SSHCertificateType.HOST:
         for remote_hostname in request.remote_hostnames:
             cert_builder.add_valid_principal(remote_hostname)
+        key_id = 'request[{}] ssh_key:[{}]  ca:[{}] valid_to[{}]'.format(
+            context.aws_request_id, cert_builder.ssh_public_key.fingerprint,
+            context.invoked_function_arn, time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
     else:
         raise ValueError("Unknown certificate type")
+
     cert_builder.set_valid_before(valid_before)
     cert_builder.set_valid_after(valid_after)
 
-    # cert_builder is needed to obtain the SSH public key's fingerprint
-    key_id = 'request[{}] for[{}] from[{}] command[{}] ssh_key:[{}]  ca:[{}] valid_to[{}]'.format(
-        context.aws_request_id, request.bastion_user, request.bastion_user_ip, request.command,
-        cert_builder.ssh_public_key.fingerprint, context.invoked_function_arn,
-        time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
-    cert_builder.set_critical_option_source_address(request.bastion_ip)
     cert_builder.set_key_id(key_id)
     cert = cert_builder.get_cert_file()
 
     if certificate_type == SSHCertificateType.HOST:
         remote_name = ', '.join(request.remote_hostnames)
+        bastion_ip = None
     else:
         remote_name = request.remote_username
+        bastion_ip = request.bastion_ip
+
     logger.info(
         'Issued a cert to bastion_ip[{}] for the remote_username of [{}] with the key_id[{}] and '
         'valid_from[{}])'.format(
-            request.bastion_ip, remote_name, key_id,
+            bastion_ip, remote_name, key_id,
             time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_after))))
     return cert
