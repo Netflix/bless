@@ -22,6 +22,6 @@ os.environ['AWS_REGION'] = 'us-west-2'
 def test_basic_local_request():
     cert = lambda_handler(VALID_TEST_REQUEST, context=Context,
                           ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
-                          entropy_check=False, certificate_type=SSHCertificateType.HOST,
-                          config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+                          entropy_check=False,
+                          config_file=os.path.join(os.path.dirname(__file__), 'bless-test-host.cfg'))
     assert cert.startswith('ssh-rsa-cert-v01@openssh.com ')
