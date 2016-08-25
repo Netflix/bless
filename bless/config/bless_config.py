@@ -22,7 +22,7 @@ BLESS_CA_SECTION = 'Bless CA'
 CA_PRIVATE_KEY_FILE_OPTION = 'ca_private_key_file'
 KMS_KEY_ID_OPTION = 'kms_key_id'
 
-KMSAUTH_KEY_ID_OPTION = 'kmsauth_key_id'
+KMSAUTH_KEY_ID_SUFFIX = '_kmsauth_key_id'
 KMSAUTH_KEY_ID_DEFAULT = None
 REGION_KMSAUTH_SERVICE_ID_SUFFIX = '_kmsauth_serviceid'
 
@@ -45,8 +45,7 @@ class BlessConfig(ConfigParser.RawConfigParser):
         defaults = {CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION: CERTIFICATE_VALIDITY_SEC_DEFAULT,
                     ENTROPY_MINIMUM_BITS_OPTION: ENTROPY_MINIMUM_BITS_DEFAULT,
                     RANDOM_SEED_BYTES_OPTION: RANDOM_SEED_BYTES_DEFAULT,
-                    LOGGING_LEVEL_OPTION: LOGGING_LEVEL_DEFAULT,
-                    KMSAUTH_KEY_ID_OPTION: KMSAUTH_KEY_ID_DEFAULT}
+                    LOGGING_LEVEL_OPTION: LOGGING_LEVEL_DEFAULT}
         ConfigParser.RawConfigParser.__init__(self, defaults=defaults)
         self.read(config_file)
 
@@ -65,7 +64,17 @@ class BlessConfig(ConfigParser.RawConfigParser):
 
     def getserviceid(self):
         """
+        Returns the correct kmsauth service id based on the region.
+        :return: A service id, such as bless-production-iad.
+        """
+        return self.get(BLESS_CA_SECTION, self.aws_region + REGION_KMSAUTH_SERVICE_ID_SUFFIX)
+
+    def getkmsauthkeyid(self):
+        """
         Returns the correct encrypted password based off of the aws_region.
         :return: A Base64 encoded KMS CiphertextBlob.
         """
-        return self.get(BLESS_CA_SECTION, self.aws_region + REGION_KMSAUTH_SERVICE_ID_SUFFIX)
+        config_name = self.aws_region + KMSAUTH_KEY_ID_SUFFIX
+        if not self.has_option(BLESS_CA_SECTION, config_name):
+            return KMSAUTH_KEY_ID_DEFAULT
+        return self.get(BLESS_CA_SECTION, config_name)
