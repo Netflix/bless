@@ -12,6 +12,12 @@ def test_validate_ips():
         validate_ips(u'256.0.0.0,172.1.1.1')
 
 
+def test_validate_ips_cidr():
+    validate_ips(u'10.0.0.0/8,172.1.1.1')
+    with pytest.raises(ValidationError):
+        validate_ips(u'10.10.10.10/8')
+
+
 def test_validate_user_too_long():
     with pytest.raises(ValidationError) as e:
         validate_user('a33characterusernameyoumustbenuts')

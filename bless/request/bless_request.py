@@ -14,7 +14,7 @@ USERNAME_PATTERN = re.compile('[a-z_][a-z0-9_-]*[$]?\Z')
 def validate_ips(ips):
     try:
         for ip in ips.split(','):
-            ipaddress.ip_address(ip)
+            ipaddress.ip_network(ip, strict=True)
     except ValueError:
         raise ValidationError('Invalid IP address.')
 
