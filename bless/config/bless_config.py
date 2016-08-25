@@ -24,6 +24,7 @@ KMS_KEY_ID_OPTION = 'kms_key_id'
 
 KMSAUTH_KEY_ID_OPTION = 'kmsauth_key_id'
 KMSAUTH_KEY_ID_DEFAULT = None
+REGION_KMSAUTH_SERVICE_ID_SUFFIX = '_kmsauth_serviceid'
 
 REGION_PASSWORD_OPTION_SUFFIX = '_password'
 
@@ -61,3 +62,10 @@ class BlessConfig(ConfigParser.RawConfigParser):
         :return: A Base64 encoded KMS CiphertextBlob.
         """
         return self.get(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX)
+
+    def getserviceid(self):
+        """
+        Returns the correct encrypted password based off of the aws_region.
+        :return: A Base64 encoded KMS CiphertextBlob.
+        """
+        return self.get(BLESS_CA_SECTION, self.aws_region + REGION_KMSAUTH_SERVICE_ID_SUFFIX)

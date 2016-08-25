@@ -97,11 +97,11 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     # Authenticate the user with KMS, if key is setup
     if (kmsauth_key_id):
         if (request.kmsauth_token):
+            kmsauth_to = config.getserviceid()
             validator = kmsauth.KMSTokenValidator(
                 kmsauth_key_id,
                 kmsauth_key_id,
-                # TODO
-                'bless-production-iad',
+                kmsauth_to,
                 region
             )
             # decrypt_token will raise a TokenValidationError if token doesn't match
