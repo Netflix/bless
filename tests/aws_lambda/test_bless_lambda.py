@@ -24,7 +24,7 @@ VALID_TEST_REQUEST_KMSAUTH = {
     "remote_username": "user",
     "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
     "command": "ssh user@server",
-    "bastion_ip": "127.0.0.1",
+    "bastion_ips": "127.0.0.1",
     "bastion_user": "user",
     "bastion_user_ip": "127.0.0.1",
     "kmsauth_token": "validkmsauthtoken",
