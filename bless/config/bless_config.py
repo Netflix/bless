@@ -48,7 +48,7 @@ class BlessConfig(ConfigParser.RawConfigParser):
                     ENTROPY_MINIMUM_BITS_OPTION: ENTROPY_MINIMUM_BITS_DEFAULT,
                     RANDOM_SEED_BYTES_OPTION: RANDOM_SEED_BYTES_DEFAULT,
                     LOGGING_LEVEL_OPTION: LOGGING_LEVEL_DEFAULT,
-                    KMSAUTH_SERVICE_ID_OPTION, KMSAUTH_SERVICE_ID_DEFAULT}
+                    KMSAUTH_SERVICE_ID_OPTION: KMSAUTH_SERVICE_ID_DEFAULT}
         ConfigParser.RawConfigParser.__init__(self, defaults=defaults)
         self.read(config_file)
 
