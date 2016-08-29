@@ -12,7 +12,7 @@ import os
 import kmsauth
 from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION, ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
-    BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION
+    BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION, KMSAUTH_SERVICE_ID_OPTION
 from bless.request.bless_request import BlessSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
@@ -97,7 +97,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     # Authenticate the user with KMS, if key is setup
     if (kmsauth_key_id):
         if (request.kmsauth_token):
-            kmsauth_to = config.getserviceid()
+            kmsauth_to = config.get(BLESS_CA_SECTION, KMSAUTH_SERVICE_ID_OPTION)
             validator = kmsauth.KMSTokenValidator(
                 kmsauth_key_id,
                 kmsauth_key_id,
