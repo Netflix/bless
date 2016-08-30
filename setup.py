@@ -33,7 +33,7 @@ setup(
         'pycparser==2.14',
         'python-dateutil==2.5.3',
         'six==1.10.0',
-        'kmsauth==0.1.4'
+        'kmsauth==0.1.7'
     ],
     extras_require={
         'tests': [
