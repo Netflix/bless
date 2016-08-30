@@ -4,26 +4,24 @@ from __future__ import absolute_import
 import logging
 import os
 import sys
-import traceback
 import optparse
 import warnings
 
-from pip._vendor.six import StringIO
-
 from pip import cmdoptions
+from pip.index import PackageFinder
 from pip.locations import running_under_virtualenv
 from pip.download import PipSession
 from pip.exceptions import (BadCommand, InstallationError, UninstallationError,
                             CommandError, PreviousBuildDirError)
+
 from pip.compat import logging_dictConfig
 from pip.baseparser import ConfigOptionParser, UpdatingDefaultsHelpFormatter
+from pip.req import InstallRequirement, parse_requirements
 from pip.status_codes import (
     SUCCESS, ERROR, UNKNOWN_ERROR, VIRTUALENV_NOT_FOUND,
     PREVIOUS_BUILD_DIR_ERROR,
 )
-from pip.utils import appdirs, get_prog, normalize_path
-from pip.utils.deprecation import RemovedInPip8Warning
-from pip.utils.filesystem import check_path_owner
+from pip.utils import deprecation, get_prog, normalize_path
 from pip.utils.logging import IndentingFormatter
 from pip.utils.outdated import pip_version_check
 
@@ -38,7 +36,7 @@ class Command(object):
     name = None
     usage = None
     hidden = False
-    log_stream = "ext://sys.stdout"
+    log_streams = ("ext://sys.stdout", "ext://sys.stderr")
 
     def __init__(self, isolated=False):
         parser_kw = {
@@ -108,46 +106,50 @@ class Command(object):
         options, args = self.parse_args(args)
 
         if options.quiet:
-            level = "WARNING"
+            if options.quiet == 1:
+                level = "WARNING"
+            if options.quiet == 2:
+                level = "ERROR"
+            else:
+                level = "CRITICAL"
         elif options.verbose:
             level = "DEBUG"
         else:
             level = "INFO"
 
-        # Compute the path for our debug log.
-        debug_log_path = os.path.join(appdirs.user_log_dir("pip"), "debug.log")
-
-        # Ensure that the path for our debug log is owned by the current user
-        # and if it is not, disable the debug log.
-        write_debug_log = check_path_owner(debug_log_path)
+        # The root logger should match the "console" level *unless* we
+        # specified "--log" to send debug logs to a file.
+        root_level = level
+        if options.log:
+            root_level = "DEBUG"
 
         logging_dictConfig({
             "version": 1,
             "disable_existing_loggers": False,
+            "filters": {
+                "exclude_warnings": {
+                    "()": "pip.utils.logging.MaxLevelFilter",
+                    "level": logging.WARNING,
+                },
+            },
             "formatters": {
                 "indent": {
                     "()": IndentingFormatter,
-                    "format": (
-                        "%(message)s"
-                        if not options.log_explicit_levels
-                        else "[%(levelname)s] %(message)s"
-                    ),
+                    "format": "%(message)s",
                 },
             },
             "handlers": {
                 "console": {
                     "level": level,
                     "class": "pip.utils.logging.ColorizedStreamHandler",
-                    "stream": self.log_stream,
+                    "stream": self.log_streams[0],
+                    "filters": ["exclude_warnings"],
                     "formatter": "indent",
                 },
-                "debug_log": {
-                    "level": "DEBUG",
-                    "class": "pip.utils.logging.BetterRotatingFileHandler",
-                    "filename": debug_log_path,
-                    "maxBytes": 10 * 1000 * 1000,  # 10 MB
-                    "backupCount": 1,
-                    "delay": True,
+                "console_errors": {
+                    "level": "WARNING",
+                    "class": "pip.utils.logging.ColorizedStreamHandler",
+                    "stream": self.log_streams[1],
                     "formatter": "indent",
                 },
                 "user_log": {
@@ -159,10 +161,10 @@ class Command(object):
                 },
             },
             "root": {
-                "level": level,
+                "level": root_level,
                 "handlers": list(filter(None, [
                     "console",
-                    "debug_log" if write_debug_log else None,
+                    "console_errors",
                     "user_log" if options.log else None,
                 ])),
             },
@@ -184,22 +186,12 @@ class Command(object):
             ),
         })
 
-        # We add this warning here instead of up above, because the logger
-        # hasn't been configured until just now.
-        if not write_debug_log:
-            logger.warning(
-                "The directory '%s' or its parent directory is not owned by "
-                "the current user and the debug log has been disabled. Please "
-                "check the permissions and owner of that directory. If "
-                "executing pip with sudo, you may want the -H flag.",
-                os.path.dirname(debug_log_path),
-            )
-
-        if options.log_explicit_levels:
+        if sys.version_info[:2] == (2, 6):
             warnings.warn(
-                "--log-explicit-levels has been deprecated and will be removed"
-                " in a future version.",
-                RemovedInPip8Warning,
+                "Python 2.6 is no longer supported by the Python core team, "
+                "please upgrade your Python. A future version of pip will "
+                "drop support for Python 2.6",
+                deprecation.Python26DeprecationWarning
             )
 
         # TODO: try to get these passing down from the command?
@@ -219,15 +211,6 @@ class Command(object):
                 )
                 sys.exit(VIRTUALENV_NOT_FOUND)
 
-        # Check if we're using the latest version of pip available
-        if (not options.disable_pip_version_check
-                and not getattr(options, "no_index", False)):
-            with self._build_session(
-                    options,
-                    retries=0,
-                    timeout=min(5, options.timeout)) as session:
-                pip_version_check(session)
-
         try:
             status = self.run(options, args)
             # FIXME: all commands should return an exit status
@@ -236,35 +219,113 @@ class Command(object):
                 return status
         except PreviousBuildDirError as exc:
             logger.critical(str(exc))
-            logger.debug('Exception information:\n%s', format_exc())
+            logger.debug('Exception information:', exc_info=True)
 
             return PREVIOUS_BUILD_DIR_ERROR
         except (InstallationError, UninstallationError, BadCommand) as exc:
             logger.critical(str(exc))
-            logger.debug('Exception information:\n%s', format_exc())
+            logger.debug('Exception information:', exc_info=True)
 
             return ERROR
         except CommandError as exc:
             logger.critical('ERROR: %s', exc)
-            logger.debug('Exception information:\n%s', format_exc())
+            logger.debug('Exception information:', exc_info=True)
 
             return ERROR
         except KeyboardInterrupt:
             logger.critical('Operation cancelled by user')
-            logger.debug('Exception information:\n%s', format_exc())
+            logger.debug('Exception information:', exc_info=True)
 
             return ERROR
         except:
-            logger.critical('Exception:\n%s', format_exc())
+            logger.critical('Exception:', exc_info=True)
 
             return UNKNOWN_ERROR
+        finally:
+            # Check if we're using the latest version of pip available
+            if (not options.disable_pip_version_check and not
+                    getattr(options, "no_index", False)):
+                with self._build_session(
+                        options,
+                        retries=0,
+                        timeout=min(5, options.timeout)) as session:
+                    pip_version_check(session)
 
         return SUCCESS
 
 
-def format_exc(exc_info=None):
-    if exc_info is None:
-        exc_info = sys.exc_info()
-    out = StringIO()
-    traceback.print_exception(*exc_info, **dict(file=out))
-    return out.getvalue()
+class RequirementCommand(Command):
+
+    @staticmethod
+    def populate_requirement_set(requirement_set, args, options, finder,
+                                 session, name, wheel_cache):
+        """
+        Marshal cmd line args into a requirement set.
+        """
+        for filename in options.constraints:
+            for req in parse_requirements(
+                    filename,
+                    constraint=True, finder=finder, options=options,
+                    session=session, wheel_cache=wheel_cache):
+                requirement_set.add_requirement(req)
+
+        for req in args:
+            requirement_set.add_requirement(
+                InstallRequirement.from_line(
+                    req, None, isolated=options.isolated_mode,
+                    wheel_cache=wheel_cache
+                )
+            )
+
+        for req in options.editables:
+            requirement_set.add_requirement(
+                InstallRequirement.from_editable(
+                    req,
+                    default_vcs=options.default_vcs,
+                    isolated=options.isolated_mode,
+                    wheel_cache=wheel_cache
+                )
+            )
+
+        found_req_in_file = False
+        for filename in options.requirements:
+            for req in parse_requirements(
+                    filename,
+                    finder=finder, options=options, session=session,
+                    wheel_cache=wheel_cache):
+                found_req_in_file = True
+                requirement_set.add_requirement(req)
+        # If --require-hashes was a line in a requirements file, tell
+        # RequirementSet about it:
+        requirement_set.require_hashes = options.require_hashes
+
+        if not (args or options.editables or found_req_in_file):
+            opts = {'name': name}
+            if options.find_links:
+                msg = ('You must give at least one requirement to '
+                       '%(name)s (maybe you meant "pip %(name)s '
+                       '%(links)s"?)' %
+                       dict(opts, links=' '.join(options.find_links)))
+            else:
+                msg = ('You must give at least one requirement '
+                       'to %(name)s (see "pip help %(name)s")' % opts)
+            logger.warning(msg)
+
+    def _build_package_finder(self, options, session):
+        """
+        Create a package finder appropriate to this requirement command.
+        """
+        index_urls = [options.index_url] + options.extra_index_urls
+        if options.no_index:
+            logger.info('Ignoring indexes: %s', ','.join(index_urls))
+            index_urls = []
+
+        return PackageFinder(
+            find_links=options.find_links,
+            format_control=options.format_control,
+            index_urls=index_urls,
+            trusted_hosts=options.trusted_hosts,
+            allow_all_prereleases=options.pre,
+            process_dependency_links=options.process_dependency_links,
+            session=session,
+        )

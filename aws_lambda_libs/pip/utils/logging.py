@@ -11,6 +11,7 @@ except ImportError:
     import dummy_threading as threading
 
 from pip.compat import WINDOWS
+from pip.utils import ensure_dir
 
 try:
     from pip._vendor import colorama
@@ -28,15 +29,17 @@ _log_state.indentation = 0
 def indent_log(num=2):
     """
     A context manager which will cause the log output to be indented for any
-    log messages emited inside it.
+    log messages emitted inside it.
     """
     _log_state.indentation += num
-    yield
-    _log_state.indentation -= num
+    try:
+        yield
+    finally:
+        _log_state.indentation -= num
 
 
 def get_indentation():
-    return _log_state.indentation
+    return getattr(_log_state, 'indentation', 0)
 
 
 class IndentingFormatter(logging.Formatter):
@@ -114,8 +117,14 @@ class ColorizedStreamHandler(logging.StreamHandler):
 class BetterRotatingFileHandler(logging.handlers.RotatingFileHandler):
 
     def _open(self):
-        # Ensure the directory exists
-        if not os.path.exists(os.path.dirname(self.baseFilename)):
-            os.makedirs(os.path.dirname(self.baseFilename))
-
+        ensure_dir(os.path.dirname(self.baseFilename))
         return logging.handlers.RotatingFileHandler._open(self)
+
+
+class MaxLevelFilter(logging.Filter):
+
+    def __init__(self, level):
+        self.level = level
+
+    def filter(self, record):
+        return record.levelno < self.level

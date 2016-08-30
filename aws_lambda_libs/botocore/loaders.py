@@ -94,11 +94,15 @@ version to use.
 
 """
 import os
+import logging
 
 from botocore import BOTOCORE_ROOT
 from botocore.compat import json
 from botocore.compat import OrderedDict
 from botocore.exceptions import DataNotFoundError, UnknownServiceError
+
+
+logger = logging.getLogger(__name__)
 
 
 def instance_cache(func):
@@ -158,6 +162,7 @@ class JSONFileLoader(object):
         # We specify "utf8" here to ensure the correct behavior.
         with open(full_path, 'rb') as fp:
             payload = fp.read().decode('utf-8')
+            logger.debug("Loading JSON file: %s", full_path)
             return json.loads(payload, object_pairs_hook=OrderedDict)
 
 

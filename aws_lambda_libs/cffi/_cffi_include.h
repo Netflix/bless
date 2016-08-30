@@ -57,6 +57,12 @@ extern "C" {
 # define _CFFI_UNUSED_FN  /* nothing */
 #endif
 
+#ifdef __cplusplus
+# ifndef _Bool
+#  define _Bool bool   /* semi-hackish: C++ has no _Bool; bool is builtin */
+# endif
+#endif
+
 /**********  CPython-specific section  **********/
 #ifndef PYPY_VERSION
 

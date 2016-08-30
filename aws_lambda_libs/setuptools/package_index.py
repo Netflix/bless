@@ -6,8 +6,18 @@ import shutil
 import socket
 import base64
 import hashlib
+import itertools
 from functools import wraps
 
+try:
+    from urllib.parse import splituser
+except ImportError:
+    from urllib2 import splituser
+
+from setuptools.extern import six
+from setuptools.extern.six.moves import urllib, http_client, configparser, map
+
+import setuptools
 from pkg_resources import (
     CHECKOUT_DIST, Distribution, BINARY_DIST, normalize_path, SOURCE_DIST,
     require, Environment, find_distributions, safe_name, safe_version,
@@ -16,12 +26,6 @@ from pkg_resources import (
 from setuptools import ssl_support
 from distutils import log
 from distutils.errors import DistutilsError
-from setuptools.compat import (urllib2, httplib, StringIO, HTTPError,
-                               urlparse, urlunparse, unquote, splituser,
-                               url2pathname, name2codepoint,
-                               unichr, urljoin, urlsplit, urlunsplit,
-                               ConfigParser)
-from setuptools.compat import filterfalse
 from fnmatch import translate
 from setuptools.py26compat import strip_fragment
 from setuptools.py27compat import get_all_headers
@@ -33,7 +37,7 @@ PYPI_MD5 = re.compile(
     '<a href="([^"#]+)">([^<]+)</a>\n\s+\\(<a (?:title="MD5 hash"\n\s+)'
     'href="[^?]+\?:action=show_md5&amp;digest=([0-9a-f]{32})">md5</a>\\)'
 )
-URL_SCHEME = re.compile('([-+.a-z0-9]{2,}):',re.I).match
+URL_SCHEME = re.compile('([-+.a-z0-9]{2,}):', re.I).match
 EXTENSIONS = ".tar.gz .tar.bz2 .tar .zip .tgz".split()
 
 __all__ = [
@@ -42,6 +46,11 @@ __all__ = [
 ]
 
 _SOCKET_TIMEOUT = 15
+
+
+_tmpl = "setuptools/{setuptools.__version__} Python-urllib/{py_major}"
+user_agent = _tmpl.format(py_major=sys.version[:3], **globals())
+
 
 def parse_bdist_wininst(name):
     """Return (base,pyversion) or (None,None) for possible .exe name"""
@@ -53,39 +62,44 @@ def parse_bdist_wininst(name):
         if lower.endswith('.win32.exe'):
             base = name[:-10]
             plat = 'win32'
-        elif lower.startswith('.win32-py',-16):
+        elif lower.startswith('.win32-py', -16):
             py_ver = name[-7:-4]
             base = name[:-16]
             plat = 'win32'
         elif lower.endswith('.win-amd64.exe'):
             base = name[:-14]
             plat = 'win-amd64'
-        elif lower.startswith('.win-amd64-py',-20):
+        elif lower.startswith('.win-amd64-py', -20):
             py_ver = name[-7:-4]
             base = name[:-20]
             plat = 'win-amd64'
-    return base,py_ver,plat
+    return base, py_ver, plat
 
 
 def egg_info_for_url(url):
-    scheme, server, path, parameters, query, fragment = urlparse(url)
-    base = unquote(path.split('/')[-1])
-    if server=='sourceforge.net' and base=='download':    # XXX Yuck
-        base = unquote(path.split('/')[-2])
-    if '#' in base: base, fragment = base.split('#',1)
-    return base,fragment
+    parts = urllib.parse.urlparse(url)
+    scheme, server, path, parameters, query, fragment = parts
+    base = urllib.parse.unquote(path.split('/')[-1])
+    if server == 'sourceforge.net' and base == 'download':    # XXX Yuck
+        base = urllib.parse.unquote(path.split('/')[-2])
+    if '#' in base:
+        base, fragment = base.split('#', 1)
+    return base, fragment
+
 
 def distros_for_url(url, metadata=None):
     """Yield egg or source distribution objects that might be found at a URL"""
     base, fragment = egg_info_for_url(url)
-    for dist in distros_for_location(url, base, metadata): yield dist
+    for dist in distros_for_location(url, base, metadata):
+        yield dist
     if fragment:
         match = EGG_FRAGMENT.match(fragment)
         if match:
             for dist in interpret_distro_name(
-                url, match.group(1), metadata, precedence = CHECKOUT_DIST
+                url, match.group(1), metadata, precedence=CHECKOUT_DIST
             ):
                 yield dist
+
 
 def distros_for_location(location, basename, metadata=None):
     """Yield egg or source distribution objects based on basename"""
@@ -107,6 +121,7 @@ def distros_for_location(location, basename, metadata=None):
             basename = basename[:-len(ext)]
             return interpret_distro_name(location, basename, metadata)
     return []  # no extension matched
+
 
 def distros_for_filename(filename, metadata=None):
     """Yield possible egg or source distribution objects based on a filename"""
@@ -138,17 +153,17 @@ def interpret_distro_name(
     # versions in distribution archive names (sdist and bdist).
 
     parts = basename.split('-')
-    if not py_version:
-        for i,p in enumerate(parts[2:]):
-            if len(p)==5 and p.startswith('py2.'):
-                return # It's a bdist_dumb, not an sdist -- bail out
+    if not py_version and any(re.match('py\d\.\d$', p) for p in parts[2:]):
+        # it is a bdist_dumb, not an sdist -- bail out
+        return
 
-    for p in range(1,len(parts)+1):
+    for p in range(1, len(parts) + 1):
         yield Distribution(
             location, metadata, '-'.join(parts[:p]), '-'.join(parts[p:]),
-            py_version=py_version, precedence = precedence,
-            platform = platform
+            py_version=py_version, precedence=precedence,
+            platform=platform
         )
+
 
 # From Python 2.7 docs
 def unique_everseen(iterable, key=None):
@@ -158,7 +173,7 @@ def unique_everseen(iterable, key=None):
     seen = set()
     seen_add = seen.add
     if key is None:
-        for element in filterfalse(seen.__contains__, iterable):
+        for element in six.moves.filterfalse(seen.__contains__, iterable):
             seen_add(element)
             yield element
     else:
@@ -167,6 +182,7 @@ def unique_everseen(iterable, key=None):
             if k not in seen:
                 seen_add(k)
                 yield element
+
 
 def unique_values(func):
     """
@@ -178,8 +194,10 @@ def unique_values(func):
         return unique_everseen(func(*args, **kwargs))
     return wrapper
 
+
 REL = re.compile("""<([^>]*\srel\s*=\s*['"]?([^'">]+)[^>]*)>""", re.I)
 # this line is here to fix emacs' cruddy broken syntax highlighting
+
 
 @unique_values
 def find_external_links(url, page):
@@ -190,23 +208,21 @@ def find_external_links(url, page):
         rels = set(map(str.strip, rel.lower().split(',')))
         if 'homepage' in rels or 'download' in rels:
             for match in HREF.finditer(tag):
-                yield urljoin(url, htmldecode(match.group(1)))
+                yield urllib.parse.urljoin(url, htmldecode(match.group(1)))
 
     for tag in ("<th>Home Page", "<th>Download URL"):
         pos = page.find(tag)
-        if pos!=-1:
-            match = HREF.search(page,pos)
+        if pos != -1:
+            match = HREF.search(page, pos)
             if match:
-                yield urljoin(url, htmldecode(match.group(1)))
+                yield urllib.parse.urljoin(url, htmldecode(match.group(1)))
 
-user_agent = "Python-urllib/%s setuptools/%s" % (
-    sys.version[:3], require('setuptools')[0].version
-)
 
 class ContentChecker(object):
     """
     A null content checker that defines the interface for checking content
     """
+
     def feed(self, block):
         """
         Feed a block of data to the hash.
@@ -226,6 +242,7 @@ class ContentChecker(object):
         """
         return
 
+
 class HashChecker(ContentChecker):
     pattern = re.compile(
         r'(?P<hash_name>sha1|sha224|sha384|sha256|sha512|md5)='
@@ -240,7 +257,7 @@ class HashChecker(ContentChecker):
     @classmethod
     def from_url(cls, url):
         "Construct a (possibly null) ContentChecker from a URL"
-        fragment = urlparse(url)[-1]
+        fragment = urllib.parse.urlparse(url)[-1]
         if not fragment:
             return ContentChecker()
         match = cls.pattern.search(fragment)
@@ -266,16 +283,22 @@ class PackageIndex(Environment):
             self, index_url="https://pypi.python.org/simple", hosts=('*',),
             ca_bundle=None, verify_ssl=True, *args, **kw
             ):
-        Environment.__init__(self,*args,**kw)
+        Environment.__init__(self, *args, **kw)
         self.index_url = index_url + "/"[:not index_url.endswith('/')]
         self.scanned_urls = {}
         self.fetched_urls = {}
         self.package_pages = {}
-        self.allows = re.compile('|'.join(map(translate,hosts))).match
+        self.allows = re.compile('|'.join(map(translate, hosts))).match
         self.to_scan = []
-        if verify_ssl and ssl_support.is_available and (ca_bundle or ssl_support.find_ca_bundle()):
+        use_ssl = (
+            verify_ssl
+            and ssl_support.is_available
+            and (ca_bundle or ssl_support.find_ca_bundle())
+        )
+        if use_ssl:
             self.opener = ssl_support.opener_for(ca_bundle)
-        else: self.opener = urllib2.urlopen
+        else:
+            self.opener = urllib.request.urlopen
 
     def process_url(self, url, retrieve=False):
         """Evaluate a URL as a possible download, and maybe retrieve it"""
@@ -302,8 +325,10 @@ class PackageIndex(Environment):
 
         self.info("Reading %s", url)
         self.fetched_urls[url] = True   # prevent multiple fetch attempts
-        f = self.open_url(url, "Download error on %s: %%s -- Some packages may not be found!" % url)
-        if f is None: return
+        tmpl = "Download error on %s: %%s -- Some packages may not be found!"
+        f = self.open_url(url, tmpl % url)
+        if f is None:
+            return
         self.fetched_urls[f.url] = True
         if 'html' not in f.headers.get('content-type', '').lower():
             f.close()   # not html, we can't process it
@@ -311,8 +336,8 @@ class PackageIndex(Environment):
 
         base = f.url     # handle redirects
         page = f.read()
-        if not isinstance(page, str): # We are in Python 3 and got bytes. We want str.
-            if isinstance(f, HTTPError):
+        if not isinstance(page, str):  # We are in Python 3 and got bytes. We want str.
+            if isinstance(f, urllib.error.HTTPError):
                 # Errors have no charset, assume latin1:
                 charset = 'latin-1'
             else:
@@ -320,9 +345,9 @@ class PackageIndex(Environment):
             page = page.decode(charset, "ignore")
         f.close()
         for match in HREF.finditer(page):
-            link = urljoin(base, htmldecode(match.group(1)))
+            link = urllib.parse.urljoin(base, htmldecode(match.group(1)))
             self.process_url(link)
-        if url.startswith(self.index_url) and getattr(f,'code',None)!=404:
+        if url.startswith(self.index_url) and getattr(f, 'code', None) != 404:
             page = self.process_index(url, page)
 
     def process_filename(self, fn, nested=False):
@@ -334,7 +359,7 @@ class PackageIndex(Environment):
         if os.path.isdir(fn) and not nested:
             path = os.path.realpath(fn)
             for item in os.listdir(path):
-                self.process_filename(os.path.join(path,item), True)
+                self.process_filename(os.path.join(path, item), True)
 
         dists = distros_for_filename(fn)
         if dists:
@@ -343,7 +368,8 @@ class PackageIndex(Environment):
 
     def url_ok(self, url, fatal=False):
         s = URL_SCHEME(url)
-        if (s and s.group(1).lower()=='file') or self.allows(urlparse(url)[1]):
+        is_file = s and s.group(1).lower() == 'file'
+        if is_file or self.allows(urllib.parse.urlparse(url)[1]):
             return True
         msg = ("\nNote: Bypassing %s (disallowed host; see "
             "http://bit.ly/1dg9ijs for details).\n")
@@ -353,41 +379,51 @@ class PackageIndex(Environment):
             self.warn(msg, url)
 
     def scan_egg_links(self, search_path):
-        for item in search_path:
-            if os.path.isdir(item):
-                for entry in os.listdir(item):
-                    if entry.endswith('.egg-link'):
-                        self.scan_egg_link(item, entry)
+        dirs = filter(os.path.isdir, search_path)
+        egg_links = (
+            (path, entry)
+            for path in dirs
+            for entry in os.listdir(path)
+            if entry.endswith('.egg-link')
+        )
+        list(itertools.starmap(self.scan_egg_link, egg_links))
 
     def scan_egg_link(self, path, entry):
-        lines = [_f for _f in map(str.strip,
-                                  open(os.path.join(path, entry))) if _f]
-        if len(lines)==2:
-            for dist in find_distributions(os.path.join(path, lines[0])):
-                dist.location = os.path.join(path, *lines)
-                dist.precedence = SOURCE_DIST
-                self.add(dist)
+        with open(os.path.join(path, entry)) as raw_lines:
+            # filter non-empty lines
+            lines = list(filter(None, map(str.strip, raw_lines)))
 
-    def process_index(self,url,page):
+        if len(lines) != 2:
+            # format is not recognized; punt
+            return
+
+        egg_path, setup_path = lines
+
+        for dist in find_distributions(os.path.join(path, egg_path)):
+            dist.location = os.path.join(path, *lines)
+            dist.precedence = SOURCE_DIST
+            self.add(dist)
+
+    def process_index(self, url, page):
         """Process the contents of a PyPI page"""
         def scan(link):
             # Process a URL to see if it's for a package page
             if link.startswith(self.index_url):
                 parts = list(map(
-                    unquote, link[len(self.index_url):].split('/')
+                    urllib.parse.unquote, link[len(self.index_url):].split('/')
                 ))
-                if len(parts)==2 and '#' not in parts[1]:
+                if len(parts) == 2 and '#' not in parts[1]:
                     # it's a package page, sanitize and index it
                     pkg = safe_name(parts[0])
                     ver = safe_version(parts[1])
-                    self.package_pages.setdefault(pkg.lower(),{})[link] = True
+                    self.package_pages.setdefault(pkg.lower(), {})[link] = True
                     return to_filename(pkg), to_filename(ver)
             return None, None
 
         # process an index page into the package-page index
         for match in HREF.finditer(page):
             try:
-                scan(urljoin(url, htmldecode(match.group(1))))
+                scan(urllib.parse.urljoin(url, htmldecode(match.group(1))))
             except ValueError:
                 pass
 
@@ -399,13 +435,13 @@ class PackageIndex(Environment):
                 base, frag = egg_info_for_url(new_url)
                 if base.endswith('.py') and not frag:
                     if ver:
-                        new_url+='#egg=%s-%s' % (pkg,ver)
+                        new_url += '#egg=%s-%s' % (pkg, ver)
                     else:
                         self.need_version_info(url)
                 self.scan_url(new_url)
 
             return PYPI_MD5.sub(
-                lambda m: '<a href="%s#md5=%s">%s</a>' % m.group(1,3,2), page
+                lambda m: '<a href="%s#md5=%s">%s</a>' % m.group(1, 3, 2), page
             )
         else:
             return ""   # no sense double-scanning non-package pages
@@ -418,24 +454,25 @@ class PackageIndex(Environment):
 
     def scan_all(self, msg=None, *args):
         if self.index_url not in self.fetched_urls:
-            if msg: self.warn(msg,*args)
+            if msg:
+                self.warn(msg, *args)
             self.info(
                 "Scanning index of all packages (this may take a while)"
             )
         self.scan_url(self.index_url)
 
     def find_packages(self, requirement):
-        self.scan_url(self.index_url + requirement.unsafe_name+'/')
+        self.scan_url(self.index_url + requirement.unsafe_name + '/')
 
         if not self.package_pages.get(requirement.key):
             # Fall back to safe version of the name
-            self.scan_url(self.index_url + requirement.project_name+'/')
+            self.scan_url(self.index_url + requirement.project_name + '/')
 
         if not self.package_pages.get(requirement.key):
             # We couldn't find the target package, so search the index page too
             self.not_found_in_index(requirement)
 
-        for url in list(self.package_pages.get(requirement.key,())):
+        for url in list(self.package_pages.get(requirement.key, ())):
             # scan each page that might be related to the desired package
             self.scan_url(url)
 
@@ -446,7 +483,7 @@ class PackageIndex(Environment):
             if dist in requirement:
                 return dist
             self.debug("%s does not match %s", requirement, dist)
-        return super(PackageIndex, self).obtain(requirement,installer)
+        return super(PackageIndex, self).obtain(requirement, installer)
 
     def check_hash(self, checker, filename, tfp):
         """
@@ -511,14 +548,14 @@ class PackageIndex(Environment):
         of `tmpdir`, and the local filename is returned.  Various errors may be
         raised if a problem occurs during downloading.
         """
-        if not isinstance(spec,Requirement):
+        if not isinstance(spec, Requirement):
             scheme = URL_SCHEME(spec)
             if scheme:
                 # It's a url, download it to tmpdir
                 found = self._download_url(scheme.group(1), spec, tmpdir)
                 base, fragment = egg_info_for_url(spec)
                 if base.endswith('.py'):
-                    found = self.gen_setup(found,fragment,tmpdir)
+                    found = self.gen_setup(found, fragment, tmpdir)
                 return found
             elif os.path.exists(spec):
                 # Existing file or directory, just return it
@@ -531,7 +568,7 @@ class PackageIndex(Environment):
                         "Not a URL, existing file, or requirement spec: %r" %
                         (spec,)
                     )
-        return getattr(self.fetch_distribution(spec, tmpdir),'location',None)
+        return getattr(self.fetch_distribution(spec, tmpdir), 'location', None)
 
     def fetch_distribution(
             self, requirement, tmpdir, force_scan=False, source=False,
@@ -565,22 +602,24 @@ class PackageIndex(Environment):
 
             for dist in env[req.key]:
 
-                if dist.precedence==DEVELOP_DIST and not develop_ok:
+                if dist.precedence == DEVELOP_DIST and not develop_ok:
                     if dist not in skipped:
-                        self.warn("Skipping development or system egg: %s",dist)
+                        self.warn("Skipping development or system egg: %s", dist)
                         skipped[dist] = 1
                     continue
 
-                if dist in req and (dist.precedence<=SOURCE_DIST or not source):
-                    return dist
+                if dist in req and (dist.precedence <= SOURCE_DIST or not source):
+                    dist.download_location = self.download(dist.location, tmpdir)
+                    if os.path.exists(dist.download_location):
+                        return dist
 
         if force_scan:
             self.prescan()
             self.find_packages(requirement)
             dist = find(requirement)
 
-        if local_index is not None:
-            dist = dist or find(requirement, local_index)
+        if not dist and local_index is not None:
+            dist = find(requirement, local_index)
 
         if dist is None:
             if self.to_scan is not None:
@@ -593,13 +632,13 @@ class PackageIndex(Environment):
 
         if dist is None:
             self.warn(
-                "No local packages or download links found for %s%s",
+                "No local packages or working download links found for %s%s",
                 (source and "a source distribution of " or ""),
                 requirement,
             )
         else:
             self.info("Best match: %s", dist)
-            return dist.clone(location=self.download(dist.location, tmpdir))
+            return dist.clone(location=dist.download_location)
 
     def fetch(self, requirement, tmpdir, force_scan=False, source=False):
         """Obtain a file suitable for fulfilling `requirement`
@@ -609,7 +648,7 @@ class PackageIndex(Environment):
         ``location`` of the downloaded distribution instead of a distribution
         object.
         """
-        dist = self.fetch_distribution(requirement,tmpdir,force_scan,source)
+        dist = self.fetch_distribution(requirement, tmpdir, force_scan, source)
         if dist is not None:
             return dist.location
         return None
@@ -621,7 +660,7 @@ class PackageIndex(Environment):
             interpret_distro_name(filename, match.group(1), None) if d.version
         ] or []
 
-        if len(dists)==1:   # unambiguous ``#egg`` fragment
+        if len(dists) == 1:   # unambiguous ``#egg`` fragment
             basename = os.path.basename(filename)
 
             # Make sure the file has been downloaded to the temp dir.
@@ -630,7 +669,7 @@ class PackageIndex(Environment):
                 from setuptools.command.easy_install import samefile
                 if not samefile(filename, dst):
                     shutil.copy2(filename, dst)
-                    filename=dst
+                    filename = dst
 
             with open(os.path.join(tmpdir, 'setup.py'), 'w') as file:
                 file.write(
@@ -647,7 +686,7 @@ class PackageIndex(Environment):
             raise DistutilsError(
                 "Can't unambiguously interpret project/version identifier %r; "
                 "any dashes in the name or version should be escaped using "
-                "underscores. %r" % (fragment,dists)
+                "underscores. %r" % (fragment, dists)
             )
         else:
             raise DistutilsError(
@@ -656,6 +695,7 @@ class PackageIndex(Environment):
             )
 
     dl_blocksize = 8192
+
     def _download_to(self, url, filename):
         self.info("Downloading %s", url)
         # Download the file
@@ -663,9 +703,9 @@ class PackageIndex(Environment):
         try:
             checker = HashChecker.from_url(url)
             fp = self.open_url(strip_fragment(url))
-            if isinstance(fp, HTTPError):
+            if isinstance(fp, urllib.error.HTTPError):
                 raise DistutilsError(
-                    "Can't download %s: %s %s" % (url, fp.code,fp.msg)
+                    "Can't download %s: %s %s" % (url, fp.code, fp.msg)
                 )
             headers = fp.info()
             blocknum = 0
@@ -676,7 +716,7 @@ class PackageIndex(Environment):
                 sizes = get_all_headers(headers, 'Content-Length')
                 size = max(map(int, sizes))
                 self.reporthook(url, filename, blocknum, bs, size)
-            with open(filename,'wb') as tfp:
+            with open(filename, 'wb') as tfp:
                 while True:
                     block = fp.read(bs)
                     if block:
@@ -689,7 +729,8 @@ class PackageIndex(Environment):
                 self.check_hash(checker, filename, tfp)
             return headers
         finally:
-            if fp: fp.close()
+            if fp:
+                fp.close()
 
     def reporthook(self, url, filename, blocknum, blksize, size):
         pass    # no-op
@@ -699,21 +740,21 @@ class PackageIndex(Environment):
             return local_open(url)
         try:
             return open_with_auth(url, self.opener)
-        except (ValueError, httplib.InvalidURL) as v:
+        except (ValueError, http_client.InvalidURL) as v:
             msg = ' '.join([str(arg) for arg in v.args])
             if warning:
                 self.warn(warning, msg)
             else:
                 raise DistutilsError('%s %s' % (url, msg))
-        except urllib2.HTTPError as v:
+        except urllib.error.HTTPError as v:
             return v
-        except urllib2.URLError as v:
+        except urllib.error.URLError as v:
             if warning:
                 self.warn(warning, v.reason)
             else:
                 raise DistutilsError("Download error for %s: %s"
                                      % (url, v.reason))
-        except httplib.BadStatusLine as v:
+        except http_client.BadStatusLine as v:
             if warning:
                 self.warn(warning, v.line)
             else:
@@ -722,7 +763,7 @@ class PackageIndex(Environment):
                     'down, %s' %
                     (url, v.line)
                 )
-        except httplib.HTTPException as v:
+        except http_client.HTTPException as v:
             if warning:
                 self.warn(warning, v)
             else:
@@ -735,25 +776,25 @@ class PackageIndex(Environment):
         name, fragment = egg_info_for_url(url)
         if name:
             while '..' in name:
-                name = name.replace('..','.').replace('\\','_')
+                name = name.replace('..', '.').replace('\\', '_')
         else:
             name = "__downloaded__"    # default if URL has no path contents
 
         if name.endswith('.egg.zip'):
             name = name[:-4]    # strip the extra .zip before download
 
-        filename = os.path.join(tmpdir,name)
+        filename = os.path.join(tmpdir, name)
 
         # Download the file
         #
-        if scheme=='svn' or scheme.startswith('svn+'):
+        if scheme == 'svn' or scheme.startswith('svn+'):
             return self._download_svn(url, filename)
-        elif scheme=='git' or scheme.startswith('git+'):
+        elif scheme == 'git' or scheme.startswith('git+'):
             return self._download_git(url, filename)
         elif scheme.startswith('hg+'):
             return self._download_hg(url, filename)
-        elif scheme=='file':
-            return url2pathname(urlparse(url)[2])
+        elif scheme == 'file':
+            return urllib.request.url2pathname(urllib.parse.urlparse(url)[2])
         else:
             self.url_ok(url, True)   # raises error if not allowed
             return self._attempt_download(url, filename)
@@ -763,7 +804,7 @@ class PackageIndex(Environment):
 
     def _attempt_download(self, url, filename):
         headers = self._download_to(url, filename)
-        if 'html' in headers.get('content-type','').lower():
+        if 'html' in headers.get('content-type', '').lower():
             return self._download_html(url, headers, filename)
         else:
             return filename
@@ -781,48 +822,49 @@ class PackageIndex(Environment):
                 break   # not an index page
         file.close()
         os.unlink(filename)
-        raise DistutilsError("Unexpected HTML page found at "+url)
+        raise DistutilsError("Unexpected HTML page found at " + url)
 
     def _download_svn(self, url, filename):
-        url = url.split('#',1)[0]   # remove any fragment for svn's sake
+        url = url.split('#', 1)[0]   # remove any fragment for svn's sake
         creds = ''
         if url.lower().startswith('svn:') and '@' in url:
-            scheme, netloc, path, p, q, f = urlparse(url)
+            scheme, netloc, path, p, q, f = urllib.parse.urlparse(url)
             if not netloc and path.startswith('//') and '/' in path[2:]:
-                netloc, path = path[2:].split('/',1)
+                netloc, path = path[2:].split('/', 1)
                 auth, host = splituser(netloc)
                 if auth:
                     if ':' in auth:
-                        user, pw = auth.split(':',1)
+                        user, pw = auth.split(':', 1)
                         creds = " --username=%s --password=%s" % (user, pw)
                     else:
-                        creds = " --username="+auth
+                        creds = " --username=" + auth
                     netloc = host
-                    url = urlunparse((scheme, netloc, url, p, q, f))
+                    parts = scheme, netloc, url, p, q, f
+                    url = urllib.parse.urlunparse(parts)
         self.info("Doing subversion checkout from %s to %s", url, filename)
         os.system("svn checkout%s -q %s %s" % (creds, url, filename))
         return filename
 
     @staticmethod
     def _vcs_split_rev_from_url(url, pop_prefix=False):
-        scheme, netloc, path, query, frag = urlsplit(url)
+        scheme, netloc, path, query, frag = urllib.parse.urlsplit(url)
 
         scheme = scheme.split('+', 1)[-1]
 
         # Some fragment identification fails
-        path = path.split('#',1)[0]
+        path = path.split('#', 1)[0]
 
         rev = None
         if '@' in path:
             path, rev = path.rsplit('@', 1)
 
         # Also, discard fragment
-        url = urlunsplit((scheme, netloc, path, query, ''))
+        url = urllib.parse.urlunsplit((scheme, netloc, path, query, ''))
 
         return url, rev
 
     def _download_git(self, url, filename):
-        filename = filename.split('#',1)[0]
+        filename = filename.split('#', 1)[0]
         url, rev = self._vcs_split_rev_from_url(url, pop_prefix=True)
 
         self.info("Doing git clone from %s to %s", url, filename)
@@ -838,7 +880,7 @@ class PackageIndex(Environment):
         return filename
 
     def _download_hg(self, url, filename):
-        filename = filename.split('#',1)[0]
+        filename = filename.split('#', 1)[0]
         url, rev = self._vcs_split_rev_from_url(url, pop_prefix=True)
 
         self.info("Doing hg clone from %s to %s", url, filename)
@@ -862,15 +904,19 @@ class PackageIndex(Environment):
     def warn(self, msg, *args):
         log.warn(msg, *args)
 
+
 # This pattern matches a character entity reference (a decimal numeric
 # references, a hexadecimal numeric reference, or a named reference).
 entity_sub = re.compile(r'&(#(\d+|x[\da-fA-F]+)|[\w.:-]+);?').sub
 
+
 def uchr(c):
     if not isinstance(c, int):
         return c
-    if c>255: return unichr(c)
+    if c > 255:
+        return six.unichr(c)
     return chr(c)
+
 
 def decode_entity(match):
     what = match.group(1)
@@ -879,12 +925,14 @@ def decode_entity(match):
     elif what.startswith('#'):
         what = int(what[1:])
     else:
-        what = name2codepoint.get(what, match.group(0))
+        what = six.moves.html_entities.name2codepoint.get(what, match.group(0))
     return uchr(what)
+
 
 def htmldecode(text):
     """Decode HTML entities in the given text."""
     return entity_sub(decode_entity, text)
+
 
 def socket_timeout(timeout=15):
     def _socket_timeout(func):
@@ -898,6 +946,7 @@ def socket_timeout(timeout=15):
         return _socket_timeout
     return _socket_timeout
 
+
 def _encode_auth(auth):
     """
     A function compatible with Python 2.3-3.3 that will encode
@@ -910,7 +959,7 @@ def _encode_auth(auth):
     >>> chr(10) in str(_encode_auth(long_auth))
     False
     """
-    auth_s = unquote(auth)
+    auth_s = urllib.parse.unquote(auth)
     # convert to bytes
     auth_bytes = auth_s.encode()
     # use the legacy interface for Python 2.3 support
@@ -918,12 +967,14 @@ def _encode_auth(auth):
     # convert back to a string
     encoded = encoded_bytes.decode()
     # strip the trailing carriage return
-    return encoded.replace('\n','')
+    return encoded.replace('\n', '')
+
 
 class Credential(object):
     """
     A username/password pair. Use like a namedtuple.
     """
+
     def __init__(self, username, password):
         self.username = username
         self.password = password
@@ -935,14 +986,15 @@ class Credential(object):
     def __str__(self):
         return '%(username)s:%(password)s' % vars(self)
 
-class PyPIConfig(ConfigParser.ConfigParser):
+
+class PyPIConfig(configparser.RawConfigParser):
 
     def __init__(self):
         """
         Load from ~/.pypirc
         """
         defaults = dict.fromkeys(['username', 'password', 'repository'], '')
-        ConfigParser.ConfigParser.__init__(self, defaults)
+        configparser.RawConfigParser.__init__(self, defaults)
 
         rc = os.path.join(os.path.expanduser('~'), '.pypirc')
         if os.path.exists(rc):
@@ -974,15 +1026,15 @@ class PyPIConfig(ConfigParser.ConfigParser):
                 return cred
 
 
-def open_with_auth(url, opener=urllib2.urlopen):
+def open_with_auth(url, opener=urllib.request.urlopen):
     """Open a urllib2 request, handling HTTP authentication"""
 
-    scheme, netloc, path, params, query, frag = urlparse(url)
+    scheme, netloc, path, params, query, frag = urllib.parse.urlparse(url)
 
     # Double scheme does not raise on Mac OS X as revealed by a
     # failing test. We would expect "nonnumeric port". Refs #20.
     if netloc.endswith(':'):
-        raise httplib.InvalidURL("nonnumeric port: ''")
+        raise http_client.InvalidURL("nonnumeric port: ''")
 
     if scheme in ('http', 'https'):
         auth, host = splituser(netloc)
@@ -994,15 +1046,16 @@ def open_with_auth(url, opener=urllib2.urlopen):
         if cred:
             auth = str(cred)
             info = cred.username, url
-            log.info('Authenticating as %s for %s (from .pypirc)' % info)
+            log.info('Authenticating as %s for %s (from .pypirc)', *info)
 
     if auth:
         auth = "Basic " + _encode_auth(auth)
-        new_url = urlunparse((scheme,host,path,params,query,frag))
-        request = urllib2.Request(new_url)
+        parts = scheme, host, path, params, query, frag
+        new_url = urllib.parse.urlunparse(parts)
+        request = urllib.request.Request(new_url)
         request.add_header("Authorization", auth)
     else:
-        request = urllib2.Request(url)
+        request = urllib.request.Request(url)
 
     request.add_header('User-Agent', user_agent)
     fp = opener(request)
@@ -1010,11 +1063,13 @@ def open_with_auth(url, opener=urllib2.urlopen):
     if auth:
         # Put authentication info back into request URL if same host,
         # so that links found on the page will work
-        s2, h2, path2, param2, query2, frag2 = urlparse(fp.url)
-        if s2==scheme and h2==host:
-            fp.url = urlunparse((s2,netloc,path2,param2,query2,frag2))
+        s2, h2, path2, param2, query2, frag2 = urllib.parse.urlparse(fp.url)
+        if s2 == scheme and h2 == host:
+            parts = s2, netloc, path2, param2, query2, frag2
+            fp.url = urllib.parse.urlunparse(parts)
 
     return fp
+
 
 # adding a timeout to avoid freezing package_index
 open_with_auth = socket_timeout(_SOCKET_TIMEOUT)(open_with_auth)
@@ -1023,28 +1078,32 @@ open_with_auth = socket_timeout(_SOCKET_TIMEOUT)(open_with_auth)
 def fix_sf_url(url):
     return url      # backward compatibility
 
+
 def local_open(url):
     """Read a local path, with special support for directories"""
-    scheme, server, path, param, query, frag = urlparse(url)
-    filename = url2pathname(path)
+    scheme, server, path, param, query, frag = urllib.parse.urlparse(url)
+    filename = urllib.request.url2pathname(path)
     if os.path.isfile(filename):
-        return urllib2.urlopen(url)
+        return urllib.request.urlopen(url)
     elif path.endswith('/') and os.path.isdir(filename):
         files = []
         for f in os.listdir(filename):
-            if f=='index.html':
-                with open(os.path.join(filename,f),'r') as fp:
+            filepath = os.path.join(filename, f)
+            if f == 'index.html':
+                with open(filepath, 'r') as fp:
                     body = fp.read()
                 break
-            elif os.path.isdir(os.path.join(filename,f)):
-                f+='/'
-            files.append("<a href=%r>%s</a>" % (f,f))
+            elif os.path.isdir(filepath):
+                f += '/'
+            files.append('<a href="{name}">{name}</a>'.format(name=f))
         else:
-            body = ("<html><head><title>%s</title>" % url) + \
-                "</head><body>%s</body></html>" % '\n'.join(files)
+            tmpl = ("<html><head><title>{url}</title>"
+                "</head><body>{files}</body></html>")
+            body = tmpl.format(url=url, files='\n'.join(files))
         status, message = 200, "OK"
     else:
         status, message, body = 404, "Path not found", "Not found"
 
     headers = {'content-type': 'text/html'}
-    return HTTPError(url, status, message, headers, StringIO(body))
+    body_stream = six.StringIO(body)
+    return urllib.error.HTTPError(url, status, message, headers, body_stream)

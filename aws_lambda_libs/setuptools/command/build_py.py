@@ -2,14 +2,20 @@ from glob import glob
 from distutils.util import convert_path
 import distutils.command.build_py as orig
 import os
-import sys
 import fnmatch
 import textwrap
+import io
+import distutils.errors
+import itertools
+
+from setuptools.extern import six
+from setuptools.extern.six.moves import map, filter, filterfalse
 
 try:
     from setuptools.lib2to3_ex import Mixin2to3
 except ImportError:
     class Mixin2to3:
+
         def run_2to3(self, files, doctests=True):
             "do nothing"
 
@@ -55,12 +61,16 @@ class build_py(orig.build_py, Mixin2to3):
         self.byte_compile(orig.build_py.get_outputs(self, include_bytecode=0))
 
     def __getattr__(self, attr):
-        if attr == 'data_files':  # lazily compute data files
-            self.data_files = files = self._get_data_files()
-            return files
+        "lazily compute data files"
+        if attr == 'data_files':
+            self.data_files = self._get_data_files()
+            return self.data_files
         return orig.build_py.__getattr__(self, attr)
 
     def build_module(self, module, module_file, package):
+        if six.PY2 and isinstance(package, six.string_types):
+            # avoid errors on Python 2 when unicode is passed (#190)
+            package = package.split('.')
         outfile, copied = orig.build_py.build_module(self, module, module_file,
                                                      package)
         if copied:
@@ -70,32 +80,37 @@ class build_py(orig.build_py, Mixin2to3):
     def _get_data_files(self):
         """Generate list of '(package,src_dir,build_dir,filenames)' tuples"""
         self.analyze_manifest()
-        data = []
-        for package in self.packages or ():
-            # Locate package source directory
-            src_dir = self.get_package_dir(package)
+        return list(map(self._get_pkg_data_files, self.packages or ()))
 
-            # Compute package build directory
-            build_dir = os.path.join(*([self.build_lib] + package.split('.')))
+    def _get_pkg_data_files(self, package):
+        # Locate package source directory
+        src_dir = self.get_package_dir(package)
 
-            # Length of path to strip from found files
-            plen = len(src_dir) + 1
+        # Compute package build directory
+        build_dir = os.path.join(*([self.build_lib] + package.split('.')))
 
-            # Strip directory from globbed filenames
-            filenames = [
-                file[plen:] for file in self.find_data_files(package, src_dir)
-            ]
-            data.append((package, src_dir, build_dir, filenames))
-        return data
+        # Strip directory from globbed filenames
+        filenames = [
+            os.path.relpath(file, src_dir)
+            for file in self.find_data_files(package, src_dir)
+        ]
+        return package, src_dir, build_dir, filenames
 
     def find_data_files(self, package, src_dir):
         """Return filenames for package's data files in 'src_dir'"""
-        globs = (self.package_data.get('', [])
-                 + self.package_data.get(package, []))
-        files = self.manifest_files.get(package, [])[:]
-        for pattern in globs:
-            # Each pattern has to be converted to a platform-specific path
-            files.extend(glob(os.path.join(src_dir, convert_path(pattern))))
+        patterns = self._get_platform_patterns(
+            self.package_data,
+            package,
+            src_dir,
+        )
+        globs_expanded = map(glob, patterns)
+        # flatten the expanded globs into an iterable of matches
+        globs_matches = itertools.chain.from_iterable(globs_expanded)
+        glob_files = filter(os.path.isfile, globs_matches)
+        files = itertools.chain(
+            self.manifest_files.get(package, []),
+            glob_files,
+        )
         return self.exclude_data_files(package, src_dir, files)
 
     def build_package_data(self):
@@ -136,22 +151,7 @@ class build_py(orig.build_py, Mixin2to3):
                 mf.setdefault(src_dirs[d], []).append(path)
 
     def get_data_files(self):
-        pass  # kludge 2.4 for lazy computation
-
-    if sys.version < "2.4":  # Python 2.4 already has this code
-        def get_outputs(self, include_bytecode=1):
-            """Return complete list of files copied to the build directory
-
-            This includes both '.py' files and data files, as well as '.pyc'
-            and '.pyo' files if 'include_bytecode' is true.  (This method is
-            needed for the 'install_lib' command to do its job properly, and to
-            generate a correct installation manifest.)
-            """
-            return orig.build_py.get_outputs(self, include_bytecode) + [
-                os.path.join(build_dir, filename)
-                for package, src_dir, build_dir, filenames in self.data_files
-                for filename in filenames
-            ]
+        pass  # Lazily compute data files in _get_data_files() function.
 
     def check_package(self, package, package_dir):
         """Check namespace packages' __init__ for declare_namespace"""
@@ -172,17 +172,15 @@ class build_py(orig.build_py, Mixin2to3):
         else:
             return init_py
 
-        f = open(init_py, 'rbU')
-        if 'declare_namespace'.encode() not in f.read():
-            from distutils.errors import DistutilsError
-
-            raise DistutilsError(
+        with io.open(init_py, 'rb') as f:
+            contents = f.read()
+        if b'declare_namespace' not in contents:
+            raise distutils.errors.DistutilsError(
                 "Namespace package problem: %s is a namespace package, but "
                 "its\n__init__.py does not call declare_namespace()! Please "
                 'fix it.\n(See the setuptools manual under '
                 '"Namespace Packages" for details.)\n"' % (package,)
             )
-        f.close()
         return init_py
 
     def initialize_options(self):
@@ -197,21 +195,63 @@ class build_py(orig.build_py, Mixin2to3):
 
     def exclude_data_files(self, package, src_dir, files):
         """Filter filenames for package's data files in 'src_dir'"""
-        globs = (self.exclude_package_data.get('', [])
-                 + self.exclude_package_data.get(package, []))
-        bad = []
-        for pattern in globs:
-            bad.extend(
-                fnmatch.filter(
-                    files, os.path.join(src_dir, convert_path(pattern))
-                )
-            )
-        bad = dict.fromkeys(bad)
-        seen = {}
-        return [
-            f for f in files if f not in bad
-            and f not in seen and seen.setdefault(f, 1)  # ditch dupes
-        ]
+        files = list(files)
+        patterns = self._get_platform_patterns(
+            self.exclude_package_data,
+            package,
+            src_dir,
+        )
+        match_groups = (
+            fnmatch.filter(files, pattern)
+            for pattern in patterns
+        )
+        # flatten the groups of matches into an iterable of matches
+        matches = itertools.chain.from_iterable(match_groups)
+        bad = set(matches)
+        keepers = (
+            fn
+            for fn in files
+            if fn not in bad
+        )
+        # ditch dupes
+        return list(_unique_everseen(keepers))
+
+    @staticmethod
+    def _get_platform_patterns(spec, package, src_dir):
+        """
+        yield platfrom-specific path patterns (suitable for glob
+        or fn_match) from a glob-based spec (such as
+        self.package_data or self.exclude_package_data)
+        matching package in src_dir.
+        """
+        raw_patterns = itertools.chain(
+            spec.get('', []),
+            spec.get(package, []),
+        )
+        return (
+            # Each pattern has to be converted to a platform-specific path
+            os.path.join(src_dir, convert_path(pattern))
+            for pattern in raw_patterns
+        )
+
+
+# from Python docs
+def _unique_everseen(iterable, key=None):
+    "List unique elements, preserving order. Remember all elements ever seen."
+    # unique_everseen('AAAABBBCCDAABBB') --> A B C D
+    # unique_everseen('ABBCcAD', str.lower) --> A B C D
+    seen = set()
+    seen_add = seen.add
+    if key is None:
+        for element in filterfalse(seen.__contains__, iterable):
+            seen_add(element)
+            yield element
+    else:
+        for element in iterable:
+            k = key(element)
+            if k not in seen:
+                seen_add(k)
+                yield element
 
 
 def assert_relative(path):

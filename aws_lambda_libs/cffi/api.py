@@ -332,8 +332,8 @@ class FFI(object):
     def from_buffer(self, python_buffer):
         """Return a <cdata 'char[]'> that points to the data of the
         given Python object, which must support the buffer interface.
-        Note that this is not meant to be used on the built-in types str,
-        unicode, or bytearray (you can build 'char[]' arrays explicitly)
+        Note that this is not meant to be used on the built-in types
+        str or unicode (you can build 'char[]' arrays explicitly)
         but only on objects containing large quantities of raw data
         in some other format, like 'array.array' or numpy arrays.
         """
@@ -397,20 +397,7 @@ class FFI(object):
         data.  Later, when this new cdata object is garbage-collected,
         'destructor(old_cdata_object)' will be called.
         """
-        try:
-            gcp = self._backend.gcp
-        except AttributeError:
-            pass
-        else:
-            return gcp(cdata, destructor)
-        #
-        with self._lock:
-            try:
-                gc_weakrefs = self.gc_weakrefs
-            except AttributeError:
-                from .gc_weakref import GcWeakrefs
-                gc_weakrefs = self.gc_weakrefs = GcWeakrefs(self)
-            return gc_weakrefs.build(cdata, destructor)
+        return self._backend.gcp(cdata, destructor)
 
     def _get_cached_btype(self, type):
         assert self._lock.acquire(False) is False

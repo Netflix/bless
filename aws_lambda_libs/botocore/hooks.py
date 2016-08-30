@@ -23,6 +23,7 @@ _FIRST = 0
 _MIDDLE = 1
 _LAST = 2
 
+
 class NodeList(_NodeList):
 
     def __copy__(self):
@@ -259,7 +260,6 @@ class HierarchicalEmitter(BaseEventHooks):
         self._register_section(event_name, handler, unique_id,
                                unique_id_uses_count, section=_LAST)
 
-
     def _register_section(self, event_name, handler, unique_id,
                           unique_id_uses_count, section):
         if unique_id is not None:
@@ -269,19 +269,20 @@ class HierarchicalEmitter(BaseEventHooks):
                 count = self._unique_id_handlers[unique_id].get('count', None)
                 if unique_id_uses_count:
                     if not count:
-                        raise ValueError("Initial registration of"
-                            " unique id %s was specified to use a counter."
-                            " Subsequent register calls to unique id must"
-                            " specify use of a counter as well." % unique_id)
+                        raise ValueError(
+                            "Initial registration of  unique id %s was "
+                            "specified to use a counter. Subsequent register "
+                            "calls to unique id must specify use of a counter "
+                            "as well." % unique_id)
                     else:
                         self._unique_id_handlers[unique_id]['count'] += 1
                 else:
                     if count:
-                        raise ValueError("Initial registration of"
-                            " unique id %s was specified to not use a counter."
-                            " Subsequent register calls to unique id must"
-                            " specify not to use a counter as well." %
-                            unique_id)
+                        raise ValueError(
+                            "Initial registration of unique id %s was "
+                            "specified to not use a counter. Subsequent "
+                            "register calls to unique id must specify not to "
+                            "use a counter as well." % unique_id)
                 return
             else:
                 # Note that the trie knows nothing about the unique
@@ -309,11 +310,11 @@ class HierarchicalEmitter(BaseEventHooks):
                 # nothing to unregister.
                 return
             if unique_id_uses_count:
-                if count == None:
-                    raise ValueError("Initial registration of"
-                        " unique id %s was specified to use a counter."
-                        " Subsequent unregister calls to unique id must"
-                        " specify use of a counter as well." % unique_id)
+                if count is None:
+                    raise ValueError(
+                        "Initial registration of unique id %s was specified to "
+                        "use a counter. Subsequent unregister calls to unique "
+                        "id must specify use of a counter as well." % unique_id)
                 elif count == 1:
                     handler = self._unique_id_handlers.pop(unique_id)['handler']
                 else:
@@ -321,11 +322,11 @@ class HierarchicalEmitter(BaseEventHooks):
                     return
             else:
                 if count:
-                    raise ValueError("Initial registration of"
-                        " unique id %s was specified to not use a counter."
-                        " Subsequent unregister calls to unique id must"
-                        " specify not to use a counter as well." % 
-                        unique_id)
+                    raise ValueError(
+                        "Initial registration of unique id %s was specified "
+                        "to not use a counter. Subsequent unregister calls "
+                        "to unique id must specify not to use a counter as "
+                        "well." % unique_id)
                 handler = self._unique_id_handlers.pop(unique_id)['handler']
         try:
             self._handlers.remove_item(event_name, handler)

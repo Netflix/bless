@@ -69,6 +69,7 @@ class ConnectionClosedError(ConnectionError):
     fmt = (
         'Connection was closed before we received a valid response '
         'from endpoint URL: "{endpoint_url}".')
+
     def __init__(self, **kwargs):
         msg = self.fmt.format(**kwargs)
         kwargs.pop('endpoint_url')
@@ -90,6 +91,18 @@ class PartialCredentialsError(BotoCoreError):
 
     """
     fmt = 'Partial credentials found in {provider}, missing: {cred_var}'
+
+
+class CredentialRetrievalError(BotoCoreError):
+    """
+    Error attempting to retrieve credentials from a remote source.
+
+    :ivar provider: The name of the credential provider.
+    :ivar error_msg: The msg explaning why credentials could not be
+        retrieved.
+
+    """
+    fmt = 'Error when retrieving credentials from {provider}: {error_msg}'
 
 
 class UnknownSignatureVersionError(BotoCoreError):
@@ -386,3 +399,7 @@ class RefreshWithMFAUnsupportedError(BotoCoreError):
 
 class MD5UnavailableError(BotoCoreError):
     fmt = "This system does not support MD5 generation."
+
+
+class MetadataRetrievalError(BotoCoreError):
+    fmt = "Error retrieving metadata: {error_msg}"

@@ -12,10 +12,15 @@
 # language governing permissions and limitations under the License.
 import copy
 from collections import deque
+from pprint import pformat
+
 from botocore.validate import validate_parameters
 from botocore.exceptions import ParamValidationError, \
     StubResponseError, StubAssertionError
 from botocore.vendored.requests.models import Response
+
+
+ANY = object()
 
 
 class Stubber(object):
@@ -63,6 +68,81 @@ class Stubber(object):
 
         service_response = s3.list_objects(Bucket='test-bucket')
         assert service_response == response
+
+
+    This class can also be called as a context manager, which will handle
+    activation / deactivation for you.
+
+    **Example:**
+    ::
+        import datetime
+        import botocore.session
+        from botocore.stub import Stubber
+
+
+        s3 = botocore.session.get_session().create_client('s3')
+
+        response = {
+            "Owner": {
+                "ID": "foo",
+                "DisplayName": "bar"
+            },
+            "Buckets": [{
+                "CreationDate": datetime.datetime(2016, 1, 20, 22, 9),
+                "Name": "baz"
+            }]
+        }
+
+
+        with Stubber(s3) as stubber:
+            stubber.add_response('list_buckets', response, {})
+            service_response = s3.list_buckets()
+
+        assert service_response == response
+
+
+    If you have an input paramter that is a randomly generated value, or you
+    otherwise don't care about its value, you can use stub.ANY to ignore it in
+    validation.
+
+    **Example:**
+    ::
+        import datetime
+        import botocore.session
+        from botocore.stub import Stubber, ANY
+
+
+        s3 = botocore.session.get_session().create_client('s3')
+        stubber = Stubber(s3)
+
+        response = {
+            'IsTruncated': False,
+            'Name': 'test-bucket',
+            'MaxKeys': 1000, 'Prefix': '',
+            'Contents': [{
+                'Key': 'test.txt',
+                'ETag': '"abc123"',
+                'StorageClass': 'STANDARD',
+                'LastModified': datetime.datetime(2016, 1, 20, 22, 9),
+                'Owner': {'ID': 'abc123', 'DisplayName': 'myname'},
+                'Size': 14814
+            }],
+            'EncodingType': 'url',
+            'ResponseMetadata': {
+                'RequestId': 'abc123',
+                'HTTPStatusCode': 200,
+                'HostId': 'abc123'
+            },
+            'Marker': ''
+        }
+
+        expected_params = {'Bucket': ANY}
+        stubber.add_response('list_objects', response, expected_params)
+
+        with stubber:
+            service_response = s3.list_objects(Bucket='test-bucket')
+
+        assert service_response == response
     """
     def __init__(self, client):
         """
@@ -72,6 +152,13 @@ class Stubber(object):
         self._event_id = 'boto_stubber'
         self._expected_params_event_id = 'boto_stubber_expected_params'
         self._queue = deque()
+
+    def __enter__(self):
+        self.activate()
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self.deactivate()
 
     def activate(self):
         """
@@ -119,6 +206,8 @@ class Stubber(object):
             be called for the provided service response. The parameters match
             the names of keyword arguments passed to that client call. If
             any of the parameters differ a ``StubResponseError`` is thrown.
+            You can use stub.ANY to indicate a particular parameter to ignore
+            in validation. stub.ANY is only valid for top level params.
         """
         self._add_response(method, service_response, expected_params)
 
@@ -145,7 +234,8 @@ class Stubber(object):
         self._queue.append(response)
 
     def add_client_error(self, method, service_error_code='',
-                         service_message='', http_status_code=400):
+                         service_message='', http_status_code=400,
+                         service_error_meta=None):
         """
         Adds a ``ClientError`` to the response queue.
 
@@ -162,6 +252,10 @@ class Stubber(object):
 
         :param http_status_code: The HTTP status code to return, e.g. 404, etc
         :type http_status_code: int
+
+        :param service_error_meta: Additional keys to be added to the
+            service Error
+        :type service_error_meta: dict
         """
         http_response = Response()
         http_response.status_code = http_status_code
@@ -176,6 +270,9 @@ class Stubber(object):
                 'Code': service_error_code
             }
         }
+
+        if service_error_meta is not None:
+            parsed_response['Error'].update(service_error_meta)
 
         operation_name = self.client.meta.method_to_api_mapping.get(method)
         # Note that we do not allow for expected_params while
@@ -200,8 +297,8 @@ class Stubber(object):
         if not self._queue:
             raise StubResponseError(
                 operation_name=model.name,
-                reason='Unexpected API Call: called with parameters %s' %
-                       params)
+                reason=('Unexpected API Call: called with parameters:\n%s' %
+                        pformat(params)))
 
         name = self._queue[0]['operation_name']
         if name != model.name:
@@ -217,11 +314,26 @@ class Stubber(object):
     def _assert_expected_params(self, model, params, **kwargs):
         self._assert_expected_call_order(model, params)
         expected_params = self._queue[0]['expected_params']
-        if expected_params is not None and params != expected_params:
+        if expected_params is None:
+            return
+
+        # Validate the parameters are equal
+        for param, value in expected_params.items():
+            if value is ANY:
+                continue
+            elif param not in params or \
+                    expected_params[param] != params[param]:
+                raise StubAssertionError(
+                    operation_name=model.name,
+                    reason='Expected parameters:\n%s,\nbut received:\n%s' % (
+                        pformat(expected_params), pformat(params)))
+
+        # Ensure there are no extra params hanging around
+        if sorted(expected_params.keys()) != sorted(params.keys()):
             raise StubAssertionError(
                 operation_name=model.name,
-                reason='Expected parameters: %s, but received: %s' % (
-                    expected_params, params))
+                reason='Expected parameters:\n%s,\nbut received:\n%s' % (
+                    pformat(expected_params), pformat(params)))
 
     def _validate_response(self, operation_name, service_response):
         service_model = self.client.meta.service_model

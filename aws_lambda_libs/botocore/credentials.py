@@ -30,7 +30,10 @@ from botocore.exceptions import PartialCredentialsError
 from botocore.exceptions import ConfigNotFound
 from botocore.exceptions import InvalidConfigError
 from botocore.exceptions import RefreshWithMFAUnsupportedError
+from botocore.exceptions import MetadataRetrievalError
+from botocore.exceptions import CredentialRetrievalError
 from botocore.utils import InstanceMetadataFetcher, parse_key_val_file
+from botocore.utils import ContainerMetadataFetcher
 
 
 logger = logging.getLogger(__name__)
@@ -70,6 +73,7 @@ def create_credential_resolver(session):
         ConfigProvider(config_filename=config_file, profile_name=profile_name),
         OriginalEC2Provider(),
         BotoProvider(),
+        ContainerProvider(),
         InstanceMetadataProvider(
             iam_role_fetcher=InstanceMetadataFetcher(
                 timeout=metadata_timeout,
@@ -379,7 +383,8 @@ class RefreshableCredentials(Credentials):
         self.secret_key = data['secret_key']
         self.token = data['token']
         self._expiry_time = parse(data['expiry_time'])
-        logger.debug("Retrieved credentials will expire at: %s", self._expiry_time)
+        logger.debug("Retrieved credentials will expire at: %s",
+                     self._expiry_time)
         self._normalize()
 
     def get_frozen_credentials(self):
@@ -472,7 +477,8 @@ class InstanceMetadataProvider(CredentialProvider):
         metadata = fetcher.retrieve_iam_role_credentials()
         if not metadata:
             return None
-        logger.info('Found credentials from IAM Role: %s', metadata['role_name'])
+        logger.info('Found credentials from IAM Role: %s',
+                    metadata['role_name'])
         # We manually set the data here, since we already made the request &
         # have it. When the expiry is hit, the credentials will auto-refresh
         # themselves.
@@ -611,7 +617,7 @@ class SharedCredentialProvider(CredentialProvider):
                             self._creds_filename)
                 access_key, secret_key = self._extract_creds_from_mapping(
                     config, self.ACCESS_KEY, self.SECRET_KEY)
-                token =  self._get_session_token(config)
+                token = self._get_session_token(config)
                 return Credentials(access_key, secret_key, token,
                                    method=self.METHOD)
 
@@ -665,7 +671,7 @@ class ConfigProvider(CredentialProvider):
                     profile_config, self.ACCESS_KEY, self.SECRET_KEY)
                 token = self._get_session_token(profile_config)
                 return Credentials(access_key, secret_key, token,
-                                method=self.METHOD)
+                                   method=self.METHOD)
         else:
             return None
 
@@ -808,7 +814,8 @@ class AssumeRoleProvider(CredentialProvider):
                 # Don't need to delete the cache entry,
                 # when we refresh via AssumeRole, we'll
                 # update the cache with the new entry.
-                logger.debug("Credentials were found in cache, but they are expired.")
+                logger.debug(
+                    "Credentials were found in cache, but they are expired.")
                 return None
             else:
                 return self._create_creds_from_response(from_cache)
@@ -826,9 +833,10 @@ class AssumeRoleProvider(CredentialProvider):
         # On windows, ':' is not allowed in filenames, so we'll
         # replace them with '_' instead.
         role_arn = role_config['role_arn'].replace(':', '_')
-        role_session_name=role_config.get('role_session_name')
+        role_session_name = role_config.get('role_session_name')
         if role_session_name:
-            cache_key = '%s--%s--%s' % (self._profile_name, role_arn, role_session_name)
+            cache_key = '%s--%s--%s' % (self._profile_name, role_arn,
+                                        role_session_name)
         else:
             cache_key = '%s--%s' % (self._profile_name, role_arn)
 
@@ -848,7 +856,8 @@ class AssumeRoleProvider(CredentialProvider):
             raise PartialCredentialsError(provider=self.METHOD,
                                           cred_var=str(e))
         external_id = profiles[self._profile_name].get('external_id')
-        role_session_name = profiles[self._profile_name].get('role_session_name')
+        role_session_name = \
+            profiles[self._profile_name].get('role_session_name')
         if source_profile not in profiles:
             raise InvalidConfigError(
                 error_msg=(
@@ -921,6 +930,57 @@ class AssumeRoleProvider(CredentialProvider):
         return assume_role_kwargs
 
 
+class ContainerProvider(CredentialProvider):
+
+    METHOD = 'container-role'
+    ENV_VAR = 'AWS_CONTAINER_CREDENTIALS_RELATIVE_URI'
+
+    def __init__(self, environ=None, fetcher=None):
+        if environ is None:
+            environ = os.environ
+        if fetcher is None:
+            fetcher = ContainerMetadataFetcher()
+        self._environ = environ
+        self._fetcher = fetcher
+
+    def load(self):
+        if self.ENV_VAR not in self._environ:
+            # This cred provider is only triggered if the
+            # self.ENV_VAR is set, which only happens if you opt
+            # into this feature on ECS.
+            return None
+        return self._retrieve_or_fail(self._environ[self.ENV_VAR])
+
+    def _retrieve_or_fail(self, relative_uri):
+        fetcher = self._create_fetcher(relative_uri)
+        creds = fetcher()
+        return RefreshableCredentials(
+            access_key=creds['access_key'],
+            secret_key=creds['secret_key'],
+            token=creds['token'],
+            method=self.METHOD,
+            expiry_time=_parse_if_needed(creds['expiry_time']),
+            refresh_using=fetcher,
+        )
+
+    def _create_fetcher(self, relative_uri):
+        def fetch_creds():
+            try:
+                response = self._fetcher.retrieve_uri(relative_uri)
+            except MetadataRetrievalError as e:
+                logger.debug("Error retrieving ECS metadata: %s", e,
+                             exc_info=True)
+                raise CredentialRetrievalError(provider=self.METHOD,
+                                               error_msg=str(e))
+            return {
+                'access_key': response['AccessKeyId'],
+                'secret_key': response['SecretAccessKey'],
+                'token': response['Token'],
+                'expiry_time': response['Expiration'],
+            }
+        return fetch_creds
+
+
 class CredentialResolver(object):
 
     def __init__(self, providers):
@@ -933,8 +993,8 @@ class CredentialResolver(object):
 
     def insert_before(self, name, credential_provider):
         """
-        Inserts a new instance of ``CredentialProvider`` into the chain that will
-        be tried before an existing one.
+        Inserts a new instance of ``CredentialProvider`` into the chain that
+        will be tried before an existing one.
 
         :param name: The short name of the credentials you'd like to insert the
             new credentials before. (ex. ``env`` or ``config``). Existing names
@@ -976,7 +1036,7 @@ class CredentialResolver(object):
         :type name: string
         """
         available_methods = [p.METHOD for p in self.providers]
-        if not name in available_methods:
+        if name not in available_methods:
             # It's not present. Fail silently.
             return
 

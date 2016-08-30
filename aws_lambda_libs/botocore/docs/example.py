@@ -161,7 +161,6 @@ class ResponseExampleDocumenter(BaseExampleDocumenter):
 class RequestExampleDocumenter(BaseExampleDocumenter):
     EVENT_NAME = 'request-example'
 
-
     def document_shape_type_structure(self, section, shape, history,
                                       include=None, exclude=None, **kwargs):
         param_format = '\'%s\''

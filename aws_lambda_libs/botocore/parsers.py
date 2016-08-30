@@ -214,6 +214,7 @@ class ResponseParser(object):
         if isinstance(parsed, dict) and 'ResponseMetadata' in parsed:
             parsed['ResponseMetadata']['HTTPStatusCode'] = (
                 response['status_code'])
+            parsed['ResponseMetadata']['HTTPHeaders'] = dict(response['headers'])
         return parsed
 
     def _is_generic_error_response(self, response):

@@ -5,6 +5,9 @@ import datetime
 import base64
 import os
 import sys
+import copy
+
+from botocore.vendored import six
 
 import kmsauth.services
 from kmsauth.utils import lru
@@ -28,14 +31,15 @@ class KMSTokenValidator(object):
             minimum_token_version=1,
             maximum_token_version=2,
             auth_token_max_lifetime=60,
-            aws_creds=None
+            aws_creds=None,
+            extra_context=None
             ):
         """Create a KMSTokenValidator object.
 
         Args:
-            auth_key: The KMS key ARN or alias to use for service
+            auth_key: A list of KMS key ARNs or aliases to use for service
                 authentication. Required.
-            user_auth_key: The KMS key ARN or alias to use for user
+            user_auth_key: A list of KMS key ARNs or aliases to use for user
                 authentication. Required.
             to_auth_context: The KMS encryption context to use for the to
                 context for authentication. Required.
@@ -74,11 +78,20 @@ class KMSTokenValidator(object):
                 'kms',
                 region=self.region
             )
+        if extra_context is None:
+            self.extra_context = {}
+        else:
+            self.extra_context = extra_context
         self.TOKENS = lru.LRUCache(4096)
         self.KEY_METADATA = {}
-        self._validate_generator()
+        self._validate()
 
-    def _validate_generator(self):
+    def _validate(self):
+        for key in ['from', 'to', 'user_type']:
+            if key in self.extra_context:
+                logging.warning(
+                    '{0} in extra_context will be ignored.'.format(key)
+                )
         if self.minimum_token_version < 1 or self.minimum_token_version > 2:
             raise ConfigurationError(
                 'Invalid minimum_token_version provided.'
@@ -92,8 +105,27 @@ class KMSTokenValidator(object):
                 'minimum_token_version can not be greater than'
                 ' self.minimum_token_version'
             )
+        self.auth_key = self._format_auth_key(self.auth_key)
+        self.user_auth_key = self._format_auth_key(self.user_auth_key)
+
+    def _format_auth_key(self, keys):
+        if isinstance(keys, six.string_types):
+            logging.debug(
+                'Passing auth key as string is deprecated, and will be removed'
+                ' in 1.0.0'
+            )
+            return [keys]
+        elif (keys is None or isinstance(keys, list)):
+            return keys
+        raise ConfigurationError(
+            'auth_key and user_auth_key must be a string, list, or None'
+        )
 
     def _get_key_arn(self, key):
+        if key.startswith('arn:aws:kms:'):
+            self.KEY_METADATA[key] = {
+                'KeyMetadata': {'Arn': key}
+            }
         if key not in self.KEY_METADATA:
             self.KEY_METADATA[key] = self.kms_client.describe_key(
                 KeyId='{0}'.format(key)
@@ -115,8 +147,9 @@ class KMSTokenValidator(object):
     def _valid_service_auth_key(self, key_arn):
         if self.auth_key is None:
             return False
-        if key_arn == self._get_key_arn(self.auth_key):
-            return True
+        for key in self.auth_key:
+            if key_arn == self._get_key_arn(key):
+                return True
         for key in self.scoped_auth_keys:
             if key_arn == self._get_key_arn(key):
                 return True
@@ -125,8 +158,9 @@ class KMSTokenValidator(object):
     def _valid_user_auth_key(self, key_arn):
         if self.user_auth_key is None:
             return False
-        if key_arn == self._get_key_arn(self.user_auth_key):
-            return True
+        for key in self.user_auth_key:
+            if key_arn == self._get_key_arn(key):
+                return True
         return False
 
     def _parse_username(self, username):
@@ -144,6 +178,16 @@ class KMSTokenValidator(object):
         else:
             raise TokenValidationError('Unsupported username format.')
         return version, user_type, _from
+
+    def extract_username_field(self, username, field):
+        version, user_type, _from = self._parse_username(username)
+        if field == 'from':
+            return _from
+        elif field == 'user_type':
+            return user_type
+        elif field == 'version':
+            return version
+        return None
 
     def decrypt_token(self, username, token):
         '''
@@ -169,10 +213,11 @@ class KMSTokenValidator(object):
         if token_key not in self.TOKENS:
             try:
                 token = base64.b64decode(token)
-                context = {
-                    'to': self.to_auth_context,
-                    'from': _from
-                }
+                # Ensure normal context fields override whatever is in
+                # extra_context.
+                context = copy.deepcopy(self.extra_context)
+                context['to'] = self.to_auth_context
+                context['from'] = _from
                 if version > 1:
                     context['user_type'] = user_type
                 data = self.kms_client.decrypt(
@@ -298,9 +343,9 @@ class KMSTokenGenerator(object):
                 'kms',
                 region=self.region
             )
-        self._validate_generator()
+        self._validate()
 
-    def _validate_generator(self):
+    def _validate(self):
         for key in ['from', 'to']:
             if key not in self.auth_context:
                 raise ConfigurationError(

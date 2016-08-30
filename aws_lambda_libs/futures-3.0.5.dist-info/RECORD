@@ -10,8 +10,9 @@ futures-3.0.5.dist-info/WHEEL,sha256=bee59qcPjkyXfMaxNWjl2CGotqfumWx9pC1hlVLr2mM
 futures-3.0.5.dist-info/metadata.json,sha256=TvEs4icSu_0_MOxGQnE-7xAVaOfES0LEDFdeavz_YDE,727
 futures-3.0.5.dist-info/pbr.json,sha256=WO34W8NlkI9xstQFuBj-3PdM01_TxUKyvnC9-kjSHiM,47
 futures-3.0.5.dist-info/top_level.txt,sha256=elL7bzFlkyVZr3M0gg0AeLUPt5OJ2F9uJcmu63VMt7A,11
+futures-3.0.5.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
 concurrent/futures/thread.pyc,,
 concurrent/__init__.pyc,,
 concurrent/futures/process.pyc,,
-concurrent/futures/_base.pyc,,
 concurrent/futures/__init__.pyc,,
+concurrent/futures/_base.pyc,,

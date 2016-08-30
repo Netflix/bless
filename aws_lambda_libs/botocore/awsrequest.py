@@ -260,7 +260,8 @@ for name, function in AWSHTTPConnection.__dict__.items():
         setattr(AWSHTTPSConnection, name, function)
 
 
-def prepare_request_dict(request_dict, endpoint_url, user_agent=None):
+def prepare_request_dict(request_dict, endpoint_url, context=None,
+                         user_agent=None):
     """
     This method prepares a request dict to be created into an
     AWSRequestObject. This prepares the request dict by adding the
@@ -289,6 +290,9 @@ def prepare_request_dict(request_dict, endpoint_url, user_agent=None):
         else:
             url += '&%s' % encoded_query_string
     r['url'] = url
+    r['context'] = context
+    if context is None:
+        r['context'] = {}
 
 
 def create_request_object(request_dict):
@@ -305,9 +309,10 @@ def create_request_object(request_dict):
 
     """
     r = request_dict
-    return AWSRequest(method=r['method'], url=r['url'],
-                      data=r['body'],
-                      headers=r['headers'])
+    request_object = AWSRequest(
+        method=r['method'], url=r['url'], data=r['body'], headers=r['headers'])
+    request_object.context.update(r['context'])
+    return request_object
 
 
 def _urljoin(endpoint_url, url_path):

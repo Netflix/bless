@@ -31,6 +31,7 @@ from botocore.compat import urlunsplit
 from botocore.compat import encodebytes
 from botocore.compat import six
 from botocore.compat import json
+from botocore.compat import MD5_AVAILABLE
 
 logger = logging.getLogger(__name__)
 
@@ -362,12 +363,50 @@ class SigV4Auth(BaseSigner):
 
 
 class S3SigV4Auth(SigV4Auth):
+    def __init__(self, credentials, service_name, region_name):
+        super(S3SigV4Auth, self).__init__(
+            credentials, service_name, region_name)
+        self._default_region_name = region_name
+
+    def add_auth(self, request):
+        # If we ever decide to share auth sessions, this could potentially be
+        # a source of concurrency bugs.
+        signing_context = request.context.get('signing', {})
+        self._region_name = signing_context.get(
+            'region', self._default_region_name)
+        super(S3SigV4Auth, self).add_auth(request)
 
     def _modify_request_before_signing(self, request):
         super(S3SigV4Auth, self)._modify_request_before_signing(request)
         if 'X-Amz-Content-SHA256' in request.headers:
             del request.headers['X-Amz-Content-SHA256']
-        request.headers['X-Amz-Content-SHA256'] = self.payload(request)
+
+        if self._should_sha256_sign_payload(request):
+            request.headers['X-Amz-Content-SHA256'] = self.payload(request)
+        else:
+            request.headers['X-Amz-Content-SHA256'] = 'UNSIGNED-PAYLOAD'
+
+    def _should_sha256_sign_payload(self, request):
+        # S3 allows optional body signing, so to minimize the performance
+        # impact, we opt to not SHA256 sign the body on streaming uploads,
+        # provided that we're on https.
+        client_config = request.context.get('client_config')
+        s3_config = getattr(client_config, 's3', None)
+
+        # The config could be None if it isn't set, or if the customer sets it
+        # to None.
+        if s3_config is None:
+            s3_config = {}
+
+        sign_payload = s3_config.get('payload_signing_enabled', None)
+        if sign_payload is not None:
+            return sign_payload
+
+        if 'Content-MD5' in request.headers and 'https' in request.url and \
+                request.context.get('has_streaming_input', False):
+            return False
+
+        return True
 
     def _normalize_url_path(self, path):
         # For S3, we do not normalize the path.
@@ -693,7 +732,7 @@ class HmacV1QueryAuth(HmacV1Auth):
         if p[3]:
             # If there was a pre-existing query string, we should
             # add that back before injecting the new query string.
-            new_query_string ='%s&%s' % (p[3], new_query_string)
+            new_query_string = '%s&%s' % (p[3], new_query_string)
         new_url_parts = (p[0], p[1], p[2], new_query_string, p[4])
         request.url = urlunsplit(new_url_parts)
 
