@@ -22,13 +22,17 @@ BLESS_CA_SECTION = 'Bless CA'
 CA_PRIVATE_KEY_FILE_OPTION = 'ca_private_key_file'
 KMS_KEY_ID_OPTION = 'kms_key_id'
 
-KMSAUTH_KEY_ID_SUFFIX = '_kmsauth_key_id'
-KMSAUTH_KEY_ID_DEFAULT = None
+REGION_PASSWORD_OPTION_SUFFIX = '_password'
+
+KMSAUTH_SECTION = 'KMS Auth'
+KMSAUTH_USEKMSAUTH_OPTION = 'use_kmsauth'
+KMSAUTH_USEKMSAUTH_DEFAULT = False
+
+KMSAUTH_KEY_ID_OPTION = 'kmsauth_key_id'
+KMSAUTH_KEY_ID_DEFAULT = ''
 
 KMSAUTH_SERVICE_ID_OPTION = 'kmsauth_serviceid'
 KMSAUTH_SERVICE_ID_DEFAULT = None
-
-REGION_PASSWORD_OPTION_SUFFIX = '_password'
 
 
 class BlessConfig(ConfigParser.RawConfigParser):
@@ -48,12 +52,17 @@ class BlessConfig(ConfigParser.RawConfigParser):
                     ENTROPY_MINIMUM_BITS_OPTION: ENTROPY_MINIMUM_BITS_DEFAULT,
                     RANDOM_SEED_BYTES_OPTION: RANDOM_SEED_BYTES_DEFAULT,
                     LOGGING_LEVEL_OPTION: LOGGING_LEVEL_DEFAULT,
-                    KMSAUTH_SERVICE_ID_OPTION: KMSAUTH_SERVICE_ID_DEFAULT}
+                    KMSAUTH_SERVICE_ID_OPTION: KMSAUTH_SERVICE_ID_DEFAULT,
+                    KMSAUTH_KEY_ID_OPTION: KMSAUTH_KEY_ID_DEFAULT,
+                    KMSAUTH_USEKMSAUTH_OPTION: KMSAUTH_USEKMSAUTH_DEFAULT}
         ConfigParser.RawConfigParser.__init__(self, defaults=defaults)
         self.read(config_file)
 
         if not self.has_section(BLESS_OPTIONS_SECTION):
             self.add_section(BLESS_OPTIONS_SECTION)
+
+        if not self.has_section(KMSAUTH_SECTION):
+            self.add_section(KMSAUTH_SECTION)
 
         if not self.has_option(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX):
             raise ValueError("No Region Specific Password Provided.")
@@ -65,12 +74,10 @@ class BlessConfig(ConfigParser.RawConfigParser):
         """
         return self.get(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX)
 
-    def getkmsauthkeyid(self):
+    def getkmsauthkeyids(self):
         """
-        Returns the correct encrypted password based off of the aws_region.
-        :return: A Base64 encoded KMS CiphertextBlob.
+        Returns a list of kmsauth keys used for validation (so a key generated
+        in one region can validate in another).
+        :return: A list of kmsauth key id's
         """
-        config_name = self.aws_region + KMSAUTH_KEY_ID_SUFFIX
-        if not self.has_option(BLESS_CA_SECTION, config_name):
-            return KMSAUTH_KEY_ID_DEFAULT
-        return self.get(BLESS_CA_SECTION, config_name)
+        return map(str.strip, self.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION).split(','))
