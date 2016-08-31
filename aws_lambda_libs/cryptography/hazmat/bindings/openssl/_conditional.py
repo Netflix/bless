@@ -184,9 +184,6 @@ CONDITIONAL_NAMES = {
     "Cryptography_HAS_ENGINE_CRYPTODEV": [
         "ENGINE_load_cryptodev"
     ],
-    "Cryptography_HAS_REMOVE_THREAD_STATE": [
-        "ERR_remove_thread_state"
-    ],
     "Cryptography_HAS_098H_ERROR_CODES": [
         "ASN1_F_B64_READ_ASN1",
         "ASN1_F_B64_WRITE_ASN1",
@@ -203,6 +200,12 @@ CONDITIONAL_NAMES = {
     "Cryptography_HAS_EC_CODES": [
         "EC_R_UNKNOWN_GROUP",
         "EC_F_EC_GROUP_NEW_BY_CURVE_NAME"
+    ],
+    "Cryptography_HAS_TLSEXT_ERROR_CODES": [
+        "SSL_TLSEXT_ERR_OK",
+        "SSL_TLSEXT_ERR_ALERT_WARNING",
+        "SSL_TLSEXT_ERR_ALERT_FATAL",
+        "SSL_TLSEXT_ERR_NOACK",
     ],
     "Cryptography_HAS_RSA_R_PKCS_DECODING_ERROR": [
         "RSA_R_PKCS_DECODING_ERROR"
@@ -249,6 +252,9 @@ CONDITIONAL_NAMES = {
     ],
     "Cryptography_HAS_MGF1_MD": [
         "EVP_PKEY_CTX_set_rsa_mgf1_md",
+    ],
+    "Cryptography_HAS_RSA_OAEP_MD": [
+        "EVP_PKEY_CTX_set_rsa_oaep_md",
     ],
     "Cryptography_HAS_TLSv1_1": [
         "SSL_OP_NO_TLSv1_1",
@@ -347,6 +353,9 @@ CONDITIONAL_NAMES = {
 
     "Cryptography_HAS_SSL_CTX_SET_CLIENT_CERT_ENGINE": [
         "SSL_CTX_set_client_cert_engine",
+    ],
+    "Cryptography_HAS_SSL_CTX_CLEAR_OPTIONS": [
+        "SSL_CTX_clear_options",
     ],
     "Cryptography_HAS_102_VERIFICATION_ERROR_CODES": [
         'X509_V_ERR_SUITE_B_INVALID_VERSION',

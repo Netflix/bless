@@ -3,7 +3,6 @@ from __future__ import absolute_import
 import logging
 import os
 import tempfile
-import re
 
 # TODO: Get this into six.moves.urllib.parse
 try:
@@ -11,7 +10,7 @@ try:
 except ImportError:
     import urlparse as urllib_parse
 
-from pip.utils import rmtree, display_path, call_subprocess
+from pip.utils import rmtree, display_path
 from pip.vcs import vcs, VersionControl
 from pip.download import path_to_url
 
@@ -46,17 +45,16 @@ class Bazaar(VersionControl):
             # Remove the location to make sure Bazaar can export it correctly
             rmtree(location)
         try:
-            call_subprocess([self.cmd, 'export', location], cwd=temp_dir,
-                            filter_stdout=self._filter, show_stdout=False)
+            self.run_command(['export', location], cwd=temp_dir,
+                             show_stdout=False)
         finally:
             rmtree(temp_dir)
 
     def switch(self, dest, url, rev_options):
-        call_subprocess([self.cmd, 'switch', url], cwd=dest)
+        self.run_command(['switch', url], cwd=dest)
 
     def update(self, dest, rev_options):
-        call_subprocess(
-            [self.cmd, 'pull', '-q'] + rev_options, cwd=dest)
+        self.run_command(['pull', '-q'] + rev_options, cwd=dest)
 
     def obtain(self, dest):
         url, rev = self.get_url_rev()
@@ -73,8 +71,7 @@ class Bazaar(VersionControl):
                 rev_display,
                 display_path(dest),
             )
-            call_subprocess(
-                [self.cmd, 'branch', '-q'] + rev_options + [url, dest])
+            self.run_command(['branch', '-q'] + rev_options + [url, dest])
 
     def get_url_rev(self):
         # hotfix the URL scheme after removing bzr+ from bzr+ssh:// readd it
@@ -84,8 +81,7 @@ class Bazaar(VersionControl):
         return url, rev
 
     def get_url(self, location):
-        urls = call_subprocess(
-            [self.cmd, 'info'], show_stdout=False, cwd=location)
+        urls = self.run_command(['info'], show_stdout=False, cwd=location)
         for line in urls.splitlines():
             line = line.strip()
             for x in ('checkout of branch: ',
@@ -98,23 +94,11 @@ class Bazaar(VersionControl):
         return None
 
     def get_revision(self, location):
-        revision = call_subprocess(
-            [self.cmd, 'revno'], show_stdout=False, cwd=location)
+        revision = self.run_command(
+            ['revno'], show_stdout=False, cwd=location)
         return revision.splitlines()[-1]
 
-    def get_tag_revs(self, location):
-        tags = call_subprocess(
-            [self.cmd, 'tags'], show_stdout=False, cwd=location)
-        tag_revs = []
-        for line in tags.splitlines():
-            tags_match = re.search(r'([.\w-]+)\s*(.*)$', line)
-            if tags_match:
-                tag = tags_match.group(1)
-                rev = tags_match.group(2)
-                tag_revs.append((rev.strip(), tag.strip()))
-        return dict(tag_revs)
-
-    def get_src_requirement(self, dist, location, find_tags):
+    def get_src_requirement(self, dist, location):
         repo = self.get_url(location)
         if not repo:
             return None
@@ -122,14 +106,11 @@ class Bazaar(VersionControl):
             repo = 'bzr+' + repo
         egg_project_name = dist.egg_name().split('-', 1)[0]
         current_rev = self.get_revision(location)
-        tag_revs = self.get_tag_revs(location)
+        return '%s@%s#egg=%s' % (repo, current_rev, egg_project_name)
 
-        if current_rev in tag_revs:
-            # It's a tag
-            full_egg_name = '%s-%s' % (egg_project_name, tag_revs[current_rev])
-        else:
-            full_egg_name = '%s-dev_r%s' % (dist.egg_name(), current_rev)
-        return '%s@%s#egg=%s' % (repo, current_rev, full_egg_name)
+    def check_version(self, dest, rev_options):
+        """Always assume the versions don't match"""
+        return False
 
 
 vcs.register(Bazaar)

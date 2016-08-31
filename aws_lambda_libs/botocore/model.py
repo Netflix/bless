@@ -432,6 +432,9 @@ class OperationModel(object):
                 return payload_shape
         return None
 
+    def __repr__(self):
+        return '%s(name=%s)' % (self.__class__.__name__, self.name)
+
 
 class ShapeResolver(object):
     """Resolves shape references."""

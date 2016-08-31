@@ -18,15 +18,16 @@ python_dateutil-2.5.3.dist-info/WHEEL,sha256=o2k-Qa-RMNIJmUdIc7KU6VWR_ErNRbWNlxD
 python_dateutil-2.5.3.dist-info/metadata.json,sha256=EFPnP1WPY4yGpvJvwKl7qUVU5gqvXC0aWz0FNUwj4Ik,1089
 python_dateutil-2.5.3.dist-info/top_level.txt,sha256=4tjdWkhRZvF7LA_BYe_L9gB2w_p2a-z5y6ArjaRkot8,9
 python_dateutil-2.5.3.dist-info/zip-safe,sha256=AbpHGcgLb-kRsJGnwFEktk7uzpZOCcBY74-YBdrKVGs,1
+python_dateutil-2.5.3.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
 dateutil/tz/__init__.pyc,,
 dateutil/__init__.pyc,,
+dateutil/easter.pyc,,
 dateutil/zoneinfo/__init__.pyc,,
 dateutil/relativedelta.pyc,,
 dateutil/tzwin.pyc,,
 dateutil/tz/tz.pyc,,
 dateutil/tz/win.pyc,,
 dateutil/parser.pyc,,
-dateutil/easter.pyc,,
 dateutil/rrule.pyc,,
 dateutil/tz/_common.pyc,,
 dateutil/zoneinfo/rebuild.pyc,,

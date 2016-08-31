@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2013-2014 Vinay Sajip.
+# Copyright (C) 2013-2016 Vinay Sajip.
 # Licensed to the Python Software Foundation under a contributor agreement.
 # See LICENSE.txt and CONTRIBUTORS.txt.
 #
@@ -74,7 +74,7 @@ FILENAME_RE = re.compile(r'''
 (-(?P<bn>\d+[^-]*))?
 -(?P<py>\w+\d+(\.\w+\d+)*)
 -(?P<bi>\w+)
--(?P<ar>\w+)
+-(?P<ar>\w+(\.\w+)*)
 \.whl$
 ''', re.IGNORECASE | re.VERBOSE)
 
@@ -293,11 +293,13 @@ class Wheel(object):
         return hash_kind, result
 
     def write_record(self, records, record_path, base):
+        records = list(records) # make a copy for sorting
+        p = to_posix(os.path.relpath(record_path, base))
+        records.append((p, '', ''))
+        records.sort()
         with CSVWriter(record_path) as writer:
             for row in records:
                 writer.writerow(row)
-            p = to_posix(os.path.relpath(record_path, base))
-            writer.writerow((p, '', ''))
 
     def write_records(self, info, libdir, archive_paths):
         records = []

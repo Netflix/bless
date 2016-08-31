@@ -90,12 +90,15 @@ class Session(object):
 
         # This is the number of seconds until we time out a request to
         # the instance metadata service.
-        'metadata_service_timeout': ('metadata_service_timeout',
-                                     'AWS_METADATA_SERVICE_TIMEOUT', 1, int),
+        'metadata_service_timeout': (
+            'metadata_service_timeout',
+            'AWS_METADATA_SERVICE_TIMEOUT', 1, int),
         # This is the number of request attempts we make until we give
         # up trying to retrieve data from the instance metadata service.
-        'metadata_service_num_attempts': ('metadata_service_num_attempts',
-                                          'AWS_METADATA_SERVICE_NUM_ATTEMPTS', 1, int),
+        'metadata_service_num_attempts': (
+            'metadata_service_num_attempts',
+            'AWS_METADATA_SERVICE_NUM_ATTEMPTS', 1, int),
+        'parameter_validation': ('parameter_validation', None, True, None),
     }
 
     #: The default format string to use when configuring the botocore logger.
@@ -373,7 +376,8 @@ class Session(object):
                 # can validate the user is not referring to a nonexistent
                 # profile.
                 cred_file = self.get_config_variable('credentials_file')
-                cred_profiles = botocore.configloader.raw_config_parse(cred_file)
+                cred_profiles = botocore.configloader.raw_config_parse(
+                    cred_file)
                 for profile in cred_profiles:
                     cred_vars = cred_profiles[profile]
                     if profile not in self._config['profiles']:

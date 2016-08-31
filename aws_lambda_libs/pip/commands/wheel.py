@@ -5,23 +5,20 @@ import logging
 import os
 import warnings
 
-from pip.basecommand import Command
-from pip.index import PackageFinder
+from pip.basecommand import RequirementCommand
 from pip.exceptions import CommandError, PreviousBuildDirError
-from pip.req import InstallRequirement, RequirementSet, parse_requirements
-from pip.utils import normalize_path
+from pip.req import RequirementSet
+from pip.utils import import_or_raise
 from pip.utils.build import BuildDirectory
-from pip.utils.deprecation import RemovedInPip7Warning, RemovedInPip8Warning
-from pip.wheel import WheelBuilder
+from pip.utils.deprecation import RemovedInPip10Warning
+from pip.wheel import WheelCache, WheelBuilder
 from pip import cmdoptions
-
-DEFAULT_WHEEL_DIR = os.path.join(normalize_path(os.curdir), 'wheelhouse')
 
 
 logger = logging.getLogger(__name__)
 
 
-class WheelCommand(Command):
+class WheelCommand(RequirementCommand):
     """
     Build Wheel archives for your requirements and dependencies.
 
@@ -55,24 +52,26 @@ class WheelCommand(Command):
             '-w', '--wheel-dir',
             dest='wheel_dir',
             metavar='dir',
-            default=DEFAULT_WHEEL_DIR,
-            help=("Build wheels into <dir>, where the default is "
-                  "'<cwd>/wheelhouse'."),
+            default=os.curdir,
+            help=("Build wheels into <dir>, where the default is the "
+                  "current working directory."),
         )
-        cmd_opts.add_option(cmdoptions.use_wheel.make())
-        cmd_opts.add_option(cmdoptions.no_use_wheel.make())
+        cmd_opts.add_option(cmdoptions.use_wheel())
+        cmd_opts.add_option(cmdoptions.no_use_wheel())
+        cmd_opts.add_option(cmdoptions.no_binary())
+        cmd_opts.add_option(cmdoptions.only_binary())
         cmd_opts.add_option(
             '--build-option',
             dest='build_options',
             metavar='options',
             action='append',
             help="Extra arguments to be supplied to 'setup.py bdist_wheel'.")
-        cmd_opts.add_option(cmdoptions.editable.make())
-        cmd_opts.add_option(cmdoptions.requirements.make())
-        cmd_opts.add_option(cmdoptions.download_cache.make())
-        cmd_opts.add_option(cmdoptions.src.make())
-        cmd_opts.add_option(cmdoptions.no_deps.make())
-        cmd_opts.add_option(cmdoptions.build_dir.make())
+        cmd_opts.add_option(cmdoptions.constraints())
+        cmd_opts.add_option(cmdoptions.editable())
+        cmd_opts.add_option(cmdoptions.requirements())
+        cmd_opts.add_option(cmdoptions.src())
+        cmd_opts.add_option(cmdoptions.no_deps())
+        cmd_opts.add_option(cmdoptions.build_dir())
 
         cmd_opts.add_option(
             '--global-option',
@@ -90,7 +89,8 @@ class WheelCommand(Command):
                   "pip only finds stable versions."),
         )
 
-        cmd_opts.add_option(cmdoptions.no_clean.make())
+        cmd_opts.add_option(cmdoptions.no_clean())
+        cmd_opts.add_option(cmdoptions.require_hashes())
 
         index_opts = cmdoptions.make_option_group(
             cmdoptions.index_group,
@@ -100,83 +100,67 @@ class WheelCommand(Command):
         self.parser.insert_option_group(0, index_opts)
         self.parser.insert_option_group(0, cmd_opts)
 
+    def check_required_packages(self):
+        import_or_raise(
+            'wheel.bdist_wheel',
+            CommandError,
+            "'pip wheel' requires the 'wheel' package. To fix this, run: "
+            "pip install wheel"
+        )
+        pkg_resources = import_or_raise(
+            'pkg_resources',
+            CommandError,
+            "'pip wheel' requires setuptools >= 0.8 for dist-info support."
+            " To fix this, run: pip install --upgrade setuptools"
+        )
+        if not hasattr(pkg_resources, 'DistInfoDistribution'):
+            raise CommandError(
+                "'pip wheel' requires setuptools >= 0.8 for dist-info "
+                "support. To fix this, run: pip install --upgrade "
+                "setuptools"
+            )
+
     def run(self, options, args):
+        self.check_required_packages()
+        cmdoptions.resolve_wheel_no_use_binary(options)
+        cmdoptions.check_install_build_global(options)
 
-        # confirm requirements
-        try:
-            import wheel.bdist_wheel
-            # Hack to make flake8 not complain about an unused import
-            wheel.bdist_wheel
-        except ImportError:
-            raise CommandError(
-                "'pip wheel' requires the 'wheel' package. To fix this, run: "
-                "pip install wheel"
+        if options.allow_external:
+            warnings.warn(
+                "--allow-external has been deprecated and will be removed in "
+                "the future. Due to changes in the repository protocol, it no "
+                "longer has any effect.",
+                RemovedInPip10Warning,
             )
 
-        try:
-            import pkg_resources
-        except ImportError:
-            raise CommandError(
-                "'pip wheel' requires setuptools >= 0.8 for dist-info support."
-                " To fix this, run: pip install --upgrade setuptools"
+        if options.allow_all_external:
+            warnings.warn(
+                "--allow-all-external has been deprecated and will be removed "
+                "in the future. Due to changes in the repository protocol, it "
+                "no longer has any effect.",
+                RemovedInPip10Warning,
             )
-        else:
-            if not hasattr(pkg_resources, 'DistInfoDistribution'):
-                raise CommandError(
-                    "'pip wheel' requires setuptools >= 0.8 for dist-info "
-                    "support. To fix this, run: pip install --upgrade "
-                    "setuptools"
-                )
+
+        if options.allow_unverified:
+            warnings.warn(
+                "--allow-unverified has been deprecated and will be removed "
+                "in the future. Due to changes in the repository protocol, it "
+                "no longer has any effect.",
+                RemovedInPip10Warning,
+            )
 
         index_urls = [options.index_url] + options.extra_index_urls
         if options.no_index:
             logger.info('Ignoring indexes: %s', ','.join(index_urls))
             index_urls = []
 
-        if options.use_mirrors:
-            warnings.warn(
-                "--use-mirrors has been deprecated and will be removed in the "
-                "future. Explicit uses of --index-url and/or --extra-index-url"
-                " is suggested.",
-                RemovedInPip7Warning,
-            )
-
-        if options.mirrors:
-            warnings.warn(
-                "--mirrors has been deprecated and will be removed in the "
-                "future. Explicit uses of --index-url and/or --extra-index-url"
-                " is suggested.",
-                RemovedInPip7Warning,
-            )
-            index_urls += options.mirrors
-
-        if options.download_cache:
-            warnings.warn(
-                "--download-cache has been deprecated and will be removed in "
-                "the future. Pip now automatically uses and configures its "
-                "cache.",
-                RemovedInPip8Warning,
-            )
-
         if options.build_dir:
             options.build_dir = os.path.abspath(options.build_dir)
 
         with self._build_session(options) as session:
-
-            finder = PackageFinder(
-                find_links=options.find_links,
-                index_urls=index_urls,
-                use_wheel=options.use_wheel,
-                allow_external=options.allow_external,
-                allow_unverified=options.allow_unverified,
-                allow_all_external=options.allow_all_external,
-                allow_all_prereleases=options.pre,
-                trusted_hosts=options.trusted_hosts,
-                process_dependency_links=options.process_dependency_links,
-                session=session,
-            )
-
+            finder = self._build_package_finder(options, session)
             build_delete = (not (options.no_clean or options.build_dir))
+            wheel_cache = WheelCache(options.cache_dir, options.format_control)
             with BuildDirectory(options.build_dir,
                                 delete=build_delete) as build_dir:
                 requirement_set = RequirementSet(
@@ -187,43 +171,17 @@ class WheelCommand(Command):
                     ignore_installed=True,
                     isolated=options.isolated_mode,
                     session=session,
-                    wheel_download_dir=options.wheel_dir
+                    wheel_cache=wheel_cache,
+                    wheel_download_dir=options.wheel_dir,
+                    require_hashes=options.require_hashes
                 )
 
-                # make the wheelhouse
-                if not os.path.exists(options.wheel_dir):
-                    os.makedirs(options.wheel_dir)
+                self.populate_requirement_set(
+                    requirement_set, args, options, finder, session, self.name,
+                    wheel_cache
+                )
 
-                # parse args and/or requirements files
-                for name in args:
-                    requirement_set.add_requirement(
-                        InstallRequirement.from_line(
-                            name, None, isolated=options.isolated_mode,
-                        )
-                    )
-                for name in options.editables:
-                    requirement_set.add_requirement(
-                        InstallRequirement.from_editable(
-                            name,
-                            default_vcs=options.default_vcs,
-                            isolated=options.isolated_mode,
-                        )
-                    )
-                for filename in options.requirements:
-                    for req in parse_requirements(
-                            filename,
-                            finder=finder,
-                            options=options,
-                            session=session):
-                        requirement_set.add_requirement(req)
-
-                # fail if no requirements
                 if not requirement_set.has_requirements:
-                    logger.error(
-                        "You must give at least one requirement to %s "
-                        "(see \"pip help %s\")",
-                        self.name, self.name,
-                    )
                     return
 
                 try:
@@ -231,7 +189,6 @@ class WheelCommand(Command):
                     wb = WheelBuilder(
                         requirement_set,
                         finder,
-                        options.wheel_dir,
                         build_options=options.build_options or [],
                         global_options=options.global_options or [],
                     )

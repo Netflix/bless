@@ -191,6 +191,8 @@ class AcceptorConfig(object):
         expected = self.expected
 
         def acceptor_matches(response):
+            if 'Error' in response:
+                return
             return expression.search(response) == expected
         return acceptor_matches
 
@@ -199,6 +201,8 @@ class AcceptorConfig(object):
         expected = self.expected
 
         def acceptor_matches(response):
+            if 'Error' in response:
+                return
             result = expression.search(response)
             if not isinstance(result, list) or not result:
                 # pathAll matcher must result in a list.
@@ -217,6 +221,8 @@ class AcceptorConfig(object):
         expected = self.expected
 
         def acceptor_matches(response):
+            if 'Error' in response:
+                return
             result = expression.search(response)
             if not isinstance(result, list) or not result:
                 # pathAny matcher must result in a list.

@@ -1,30 +1,47 @@
-from distutils.command.build_ext import build_ext as _du_build_ext
-from distutils.file_util import copy_file
-from distutils.ccompiler import new_compiler
-from distutils.sysconfig import customize_compiler
-from distutils.errors import DistutilsError
-from distutils import log
 import os
 import sys
 import itertools
+import imp
+from distutils.command.build_ext import build_ext as _du_build_ext
+from distutils.file_util import copy_file
+from distutils.ccompiler import new_compiler
+from distutils.sysconfig import customize_compiler, get_config_var
+from distutils.errors import DistutilsError
+from distutils import log
 
 from setuptools.extension import Library
+from setuptools.extern import six
 
 try:
-    # Attempt to use Pyrex for building extensions, if available
-    from Pyrex.Distutils.build_ext import build_ext as _build_ext
+    # Attempt to use Cython for building extensions, if available
+    from Cython.Distutils.build_ext import build_ext as _build_ext
 except ImportError:
     _build_ext = _du_build_ext
 
-try:
-    # Python 2.7 or >=3.2
-    from sysconfig import _CONFIG_VARS
-except ImportError:
-    from distutils.sysconfig import get_config_var
+# make sure _config_vars is initialized
+get_config_var("LDSHARED")
+from distutils.sysconfig import _config_vars as _CONFIG_VARS
 
-    get_config_var("LDSHARED")  # make sure _config_vars is initialized
-    del get_config_var
-    from distutils.sysconfig import _config_vars as _CONFIG_VARS
+
+def _customize_compiler_for_shlib(compiler):
+    if sys.platform == "darwin":
+        # building .dylib requires additional compiler flags on OSX; here we
+        # temporarily substitute the pyconfig.h variables so that distutils'
+        # 'customize_compiler' uses them before we build the shared libraries.
+        tmp = _CONFIG_VARS.copy()
+        try:
+            # XXX Help!  I don't have any idea whether these are right...
+            _CONFIG_VARS['LDSHARED'] = (
+                "gcc -Wl,-x -dynamiclib -undefined dynamic_lookup")
+            _CONFIG_VARS['CCSHARED'] = " -dynamiclib"
+            _CONFIG_VARS['SO'] = ".dylib"
+            customize_compiler(compiler)
+        finally:
+            _CONFIG_VARS.clear()
+            _CONFIG_VARS.update(tmp)
+    else:
+        customize_compiler(compiler)
+
 
 have_rtld = False
 use_stubs = False
@@ -43,7 +60,17 @@ elif os.name != 'nt':
 if_dl = lambda s: s if have_rtld else ''
 
 
+def get_abi3_suffix():
+    """Return the file extension for an abi3-compliant Extension()"""
+    for suffix, _, _ in (s for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION):
+        if '.abi3' in suffix:   # Unix
+            return suffix
+        elif suffix == '.pyd':  # Windows
+            return suffix
+
+
 class build_ext(_build_ext):
+
     def run(self):
         """Build extensions in build directory, then copy if --inplace"""
         old_inplace, self.inplace = self.inplace, 0
@@ -74,19 +101,19 @@ class build_ext(_build_ext):
             if ext._needs_stub:
                 self.write_stub(package_dir or os.curdir, ext, True)
 
-    if _build_ext is not _du_build_ext and not hasattr(_build_ext,
-                                                       'pyrex_sources'):
-        # Workaround for problems using some Pyrex versions w/SWIG and/or 2.4
-        def swig_sources(self, sources, *otherargs):
-            # first do any Pyrex processing
-            sources = _build_ext.swig_sources(self, sources) or sources
-            # Then do any actual SWIG stuff on the remainder
-            return _du_build_ext.swig_sources(self, sources, *otherargs)
-
     def get_ext_filename(self, fullname):
         filename = _build_ext.get_ext_filename(self, fullname)
         if fullname in self.ext_map:
             ext = self.ext_map[fullname]
+            use_abi3 = (
+                six.PY3
+                and getattr(ext, 'py_limited_api')
+                and get_abi3_suffix()
+            )
+            if use_abi3:
+                so_ext = get_config_var('SO')
+                filename = filename[:-len(so_ext)]
+                filename = filename + get_abi3_suffix()
             if isinstance(ext, Library):
                 fn, ext = os.path.splitext(filename)
                 return self.shlib_compiler.library_filename(fn, libtype)
@@ -134,20 +161,7 @@ class build_ext(_build_ext):
         compiler = self.shlib_compiler = new_compiler(
             compiler=self.compiler, dry_run=self.dry_run, force=self.force
         )
-        if sys.platform == "darwin":
-            tmp = _CONFIG_VARS.copy()
-            try:
-                # XXX Help!  I don't have any idea whether these are right...
-                _CONFIG_VARS['LDSHARED'] = (
-                    "gcc -Wl,-x -dynamiclib -undefined dynamic_lookup")
-                _CONFIG_VARS['CCSHARED'] = " -dynamiclib"
-                _CONFIG_VARS['SO'] = ".dylib"
-                customize_compiler(compiler)
-            finally:
-                _CONFIG_VARS.clear()
-                _CONFIG_VARS.update(tmp)
-        else:
-            customize_compiler(compiler)
+        _customize_compiler_for_shlib(compiler)
 
         if self.include_dirs is not None:
             compiler.set_include_dirs(self.include_dirs)
@@ -176,6 +190,7 @@ class build_ext(_build_ext):
         return _build_ext.get_export_symbols(self, ext)
 
     def build_extension(self, ext):
+        ext._convert_pyx_sources_to_lang()
         _compiler = self.compiler
         try:
             if isinstance(ext, Library):

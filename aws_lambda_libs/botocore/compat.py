@@ -28,8 +28,10 @@ logger = logging.getLogger(__name__)
 
 if six.PY3:
     from six.moves import http_client
+
     class HTTPHeaders(http_client.HTTPMessage):
         pass
+
     from urllib.parse import quote
     from urllib.parse import urlencode
     from urllib.parse import unquote

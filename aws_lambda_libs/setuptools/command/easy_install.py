@@ -15,11 +15,14 @@ __ https://pythonhosted.org/setuptools/easy_install.html
 from glob import glob
 from distutils.util import get_platform
 from distutils.util import convert_path, subst_vars
-from distutils.errors import DistutilsArgError, DistutilsOptionError, \
-    DistutilsError, DistutilsPlatformError
+from distutils.errors import (
+    DistutilsArgError, DistutilsOptionError,
+    DistutilsError, DistutilsPlatformError,
+)
 from distutils.command.install import INSTALL_SCHEMES, SCHEME_KEYS
 from distutils import log, dir_util
 from distutils.command.build_scripts import first_line_re
+from distutils.spawn import find_executable
 import sys
 import os
 import zipimport
@@ -29,7 +32,6 @@ import zipfile
 import re
 import stat
 import random
-import platform
 import textwrap
 import warnings
 import site
@@ -39,6 +41,9 @@ import subprocess
 import shlex
 import io
 
+from setuptools.extern import six
+from setuptools.extern.six.moves import configparser, map
+
 from setuptools import Command
 from setuptools.sandbox import run_setup
 from setuptools.py31compat import get_path, get_config_vars
@@ -47,8 +52,6 @@ from setuptools.archive_util import unpack_archive
 from setuptools.package_index import PackageIndex
 from setuptools.package_index import URL_SCHEME
 from setuptools.command import bdist_egg, egg_info
-from setuptools.compat import (iteritems, maxsize, basestring, unicode,
-                               reraise, PY2, PY3)
 from pkg_resources import (
     yield_lines, normalize_path, resource_string, ensure_directory,
     get_distribution, find_distributions, Environment, Requirement,
@@ -72,6 +75,12 @@ def is_64bit():
 
 
 def samefile(p1, p2):
+    """
+    Determine if two paths reference the same file.
+
+    Augments os.path.samefile to work on Windows and
+    suppresses errors if the path doesn't exist.
+    """
     both_exist = os.path.exists(p1) and os.path.exists(p2)
     use_samefile = hasattr(os.path, 'samefile') and both_exist
     if use_samefile:
@@ -81,13 +90,13 @@ def samefile(p1, p2):
     return norm_p1 == norm_p2
 
 
-if PY2:
+if six.PY2:
     def _to_ascii(s):
         return s
 
     def isascii(s):
         try:
-            unicode(s, 'ascii')
+            six.text_type(s, 'ascii')
             return True
         except UnicodeError:
             return False
@@ -101,6 +110,9 @@ else:
             return True
         except UnicodeError:
             return False
+
+
+_one_liner = lambda text: textwrap.dedent(text).strip().replace('\n', '; ')
 
 
 class easy_install(Command):
@@ -152,12 +164,9 @@ class easy_install(Command):
     create_index = PackageIndex
 
     def initialize_options(self):
-        if site.ENABLE_USER_SITE:
-            whereami = os.path.abspath(__file__)
-            self.user = whereami.startswith(site.USER_SITE)
-        else:
-            self.user = 0
-
+        # the --user option seems to be an opt-in one,
+        # so the default should be False.
+        self.user = 0
         self.zip_ok = self.local_snapshots_ok = None
         self.install_dir = self.script_dir = self.exclude_scripts = None
         self.index_url = None
@@ -203,20 +212,34 @@ class easy_install(Command):
         )
 
     def delete_blockers(self, blockers):
-        for filename in blockers:
-            if os.path.exists(filename) or os.path.islink(filename):
-                log.info("Deleting %s", filename)
-                if not self.dry_run:
-                    if (os.path.isdir(filename) and
-                            not os.path.islink(filename)):
-                        rmtree(filename)
-                    else:
-                        os.unlink(filename)
+        extant_blockers = (
+            filename for filename in blockers
+            if os.path.exists(filename) or os.path.islink(filename)
+        )
+        list(map(self._delete_path, extant_blockers))
+
+    def _delete_path(self, path):
+        log.info("Deleting %s", path)
+        if self.dry_run:
+            return
+
+        is_tree = os.path.isdir(path) and not os.path.islink(path)
+        remover = rmtree if is_tree else os.unlink
+        remover(path)
+
+    @staticmethod
+    def _render_version():
+        """
+        Render the Setuptools version and installation details, then exit.
+        """
+        ver = sys.version[:3]
+        dist = get_distribution('setuptools')
+        tmpl = 'setuptools {dist.version} from {dist.location} (Python {ver})'
+        print(tmpl.format(**locals()))
+        raise SystemExit()
 
     def finalize_options(self):
-        if self.version:
-            print('setuptools %s' % get_distribution('setuptools').version)
-            sys.exit()
+        self.version and self._render_version()
 
         py_version = sys.version.split()[0]
         prefix, exec_prefix = get_config_vars('prefix', 'exec_prefix')
@@ -240,24 +263,15 @@ class easy_install(Command):
             self.config_vars['userbase'] = self.install_userbase
             self.config_vars['usersite'] = self.install_usersite
 
-        # fix the install_dir if "--user" was used
-        # XXX: duplicate of the code in the setup command
-        if self.user and site.ENABLE_USER_SITE:
-            self.create_home_path()
-            if self.install_userbase is None:
-                raise DistutilsPlatformError(
-                    "User base directory is not specified")
-            self.install_base = self.install_platbase = self.install_userbase
-            if os.name == 'posix':
-                self.select_scheme("unix_user")
-            else:
-                self.select_scheme(os.name + "_user")
+        self._fix_install_dir_for_user_site()
 
         self.expand_basedirs()
         self.expand_dirs()
 
-        self._expand('install_dir', 'script_dir', 'build_directory',
-                     'site_dirs')
+        self._expand(
+            'install_dir', 'script_dir', 'build_directory',
+            'site_dirs',
+        )
         # If a non-default installation directory was specified, default the
         # script directory to match it.
         if self.script_dir is None:
@@ -319,7 +333,7 @@ class easy_install(Command):
         self.local_index = Environment(self.shadow_path + sys.path)
 
         if self.find_links is not None:
-            if isinstance(self.find_links, basestring):
+            if isinstance(self.find_links, six.string_types):
                 self.find_links = self.find_links.split()
         else:
             self.find_links = []
@@ -346,6 +360,21 @@ class easy_install(Command):
 
         self.outputs = []
 
+    def _fix_install_dir_for_user_site(self):
+        """
+        Fix the install_dir if "--user" was used.
+        """
+        if not self.user or not site.ENABLE_USER_SITE:
+            return
+
+        self.create_home_path()
+        if self.install_userbase is None:
+            msg = "User base directory is not specified"
+            raise DistutilsPlatformError(msg)
+        self.install_base = self.install_platbase = self.install_userbase
+        scheme_name = os.name.replace('posix', 'unix') + '_user'
+        self.select_scheme(scheme_name)
+
     def _expand_attrs(self, attrs):
         for attr in attrs:
             val = getattr(self, attr)
@@ -362,9 +391,15 @@ class easy_install(Command):
 
     def expand_dirs(self):
         """Calls `os.path.expanduser` on install dirs."""
-        self._expand_attrs(['install_purelib', 'install_platlib',
-                            'install_lib', 'install_headers',
-                            'install_scripts', 'install_data', ])
+        dirs = [
+            'install_purelib',
+            'install_platlib',
+            'install_lib',
+            'install_headers',
+            'install_scripts',
+            'install_data',
+        ]
+        self._expand_attrs(dirs)
 
     def run(self):
         if self.verbose != self.distribution.verbose:
@@ -396,8 +431,8 @@ class easy_install(Command):
         """
         try:
             pid = os.getpid()
-        except:
-            pid = random.randint(0, maxsize)
+        except Exception:
+            pid = random.randint(0, sys.maxsize)
         return os.path.join(self.install_dir, "test-easy-install-%s" % pid)
 
     def warn_deprecated_options(self):
@@ -438,7 +473,7 @@ class easy_install(Command):
             self.pth_file = None
 
         PYTHONPATH = os.environ.get('PYTHONPATH', '').split(os.pathsep)
-        if instdir not in map(normalize_path, [_f for _f in PYTHONPATH if _f]):
+        if instdir not in map(normalize_path, filter(None, PYTHONPATH)):
             # only PYTHONPATH dirs need a site.py, so pretend it's there
             self.sitepy_installed = True
         elif self.multi_version and not os.path.exists(pth_file):
@@ -498,6 +533,12 @@ class easy_install(Command):
         pth_file = self.pseudo_tempname() + ".pth"
         ok_file = pth_file + '.ok'
         ok_exists = os.path.exists(ok_file)
+        tmpl = _one_liner("""
+            import os
+            f = open({ok_file!r}, 'w')
+            f.write('OK')
+            f.close()
+            """) + '\n'
         try:
             if ok_exists:
                 os.unlink(ok_file)
@@ -509,16 +550,18 @@ class easy_install(Command):
             self.cant_write_to_target()
         else:
             try:
-                f.write("import os; f = open(%r, 'w'); f.write('OK'); "
-                        "f.close()\n" % (ok_file,))
+                f.write(tmpl.format(**locals()))
                 f.close()
                 f = None
                 executable = sys.executable
                 if os.name == 'nt':
                     dirname, basename = os.path.split(executable)
                     alt = os.path.join(dirname, 'pythonw.exe')
-                    if (basename.lower() == 'python.exe' and
-                            os.path.exists(alt)):
+                    use_alt = (
+                        basename.lower() == 'python.exe' and
+                        os.path.exists(alt)
+                    )
+                    if use_alt:
                         # use pythonw.exe to avoid opening a console window
                         executable = alt
 
@@ -585,7 +628,6 @@ class easy_install(Command):
 
     def easy_install(self, spec, deps=False):
         tmpdir = tempfile.mkdtemp(prefix="easy_install-")
-        download = None
         if not self.editable:
             self.install_site_py()
 
@@ -594,9 +636,8 @@ class easy_install(Command):
                 if URL_SCHEME(spec):
                     # It's a url, download it to tmpdir and process
                     self.not_editable(spec)
-                    download = self.package_index.download(spec, tmpdir)
-                    return self.install_item(None, download, tmpdir, deps,
-                                             True)
+                    dl = self.package_index.download(spec, tmpdir)
+                    return self.install_item(None, dl, tmpdir, deps, True)
 
                 elif os.path.exists(spec):
                     # Existing file or directory, just process it directly
@@ -693,19 +734,14 @@ class easy_install(Command):
         elif requirement is None or dist not in requirement:
             # if we wound up with a different version, resolve what we've got
             distreq = dist.as_requirement()
-            requirement = requirement or distreq
-            requirement = Requirement(
-                distreq.project_name, distreq.specs, requirement.extras
-            )
+            requirement = Requirement(str(distreq))
         log.info("Processing dependencies for %s", requirement)
         try:
             distros = WorkingSet([]).resolve(
                 [requirement], self.local_index, self.easy_install
             )
         except DistributionNotFound as e:
-            raise DistutilsError(
-                "Could not find required distribution %s" % e.args
-            )
+            raise DistutilsError(str(e))
         except VersionConflict as e:
             raise DistutilsError(e.report())
         if self.always_copy or self.always_copy_from:
@@ -727,8 +763,9 @@ class easy_install(Command):
     def maybe_move(self, spec, dist_filename, setup_base):
         dst = os.path.join(self.build_directory, spec.key)
         if os.path.exists(dst):
-            msg = ("%r already exists in %s; build directory %s will not be "
-                   "kept")
+            msg = (
+                "%r already exists in %s; build directory %s will not be kept"
+            )
             log.warn(msg, spec.key, self.build_directory, setup_base)
             return setup_base
         if os.path.isdir(dist_filename):
@@ -747,9 +784,10 @@ class easy_install(Command):
         return dst
 
     def install_wrapper_scripts(self, dist):
-        if not self.exclude_scripts:
-            for args in ScriptWriter.best().get_args(dist):
-                self.write_script(*args)
+        if self.exclude_scripts:
+            return
+        for args in ScriptWriter.best().get_args(dist):
+            self.write_script(*args)
 
     def install_script(self, dist, script_name, script_text, dev_path=None):
         """Generate a legacy script wrapper and install it"""
@@ -757,8 +795,8 @@ class easy_install(Command):
         is_script = is_python_script(script_text, script_name)
 
         if is_script:
-            script_text = (ScriptWriter.get_header(script_text) +
-                           self._load_template(dev_path) % locals())
+            body = self._load_template(dev_path) % locals()
+            script_text = ScriptWriter.get_header(script_text) + body
         self.write_script(script_name, _to_ascii(script_text), 'b')
 
     @staticmethod
@@ -767,7 +805,7 @@ class easy_install(Command):
         There are a couple of template scripts in the package. This
         function loads one of them and prepares it for use.
         """
-        # See https://bitbucket.org/pypa/setuptools/issue/134 for info
+        # See https://github.com/pypa/setuptools/issues/134 for info
         # on script file naming and downstream issues with SVR4
         name = 'script.tmpl'
         if dev_path:
@@ -790,9 +828,8 @@ class easy_install(Command):
             ensure_directory(target)
             if os.path.exists(target):
                 os.unlink(target)
-            f = open(target, "w" + mode)
-            f.write(contents)
-            f.close()
+            with open(target, "w" + mode) as f:
+                f.write(contents)
             chmod(target, 0o777 - mask)
 
     def install_eggs(self, spec, dist_filename, tmpdir):
@@ -846,8 +883,10 @@ class easy_install(Command):
         return Distribution.from_filename(egg_path, metadata=metadata)
 
     def install_egg(self, egg_path, tmpdir):
-        destination = os.path.join(self.install_dir,
-                                   os.path.basename(egg_path))
+        destination = os.path.join(
+            self.install_dir,
+            os.path.basename(egg_path),
+        )
         destination = os.path.abspath(destination)
         if not self.dry_run:
             ensure_directory(destination)
@@ -857,8 +896,11 @@ class easy_install(Command):
             if os.path.isdir(destination) and not os.path.islink(destination):
                 dir_util.remove_tree(destination, dry_run=self.dry_run)
             elif os.path.exists(destination):
-                self.execute(os.unlink, (destination,), "Removing " +
-                             destination)
+                self.execute(
+                    os.unlink,
+                    (destination,),
+                    "Removing " + destination,
+                )
             try:
                 new_dist_is_zipped = False
                 if os.path.isdir(egg_path):
@@ -875,13 +917,19 @@ class easy_install(Command):
                         f, m = shutil.move, "Moving"
                     else:
                         f, m = shutil.copy2, "Copying"
-                self.execute(f, (egg_path, destination),
-                             (m + " %s to %s") %
-                             (os.path.basename(egg_path),
-                              os.path.dirname(destination)))
-                update_dist_caches(destination,
-                                   fix_zipimporter_caches=new_dist_is_zipped)
-            except:
+                self.execute(
+                    f,
+                    (egg_path, destination),
+                    (m + " %s to %s") % (
+                        os.path.basename(egg_path),
+                        os.path.dirname(destination)
+                    ),
+                )
+                update_dist_caches(
+                    destination,
+                    fix_zipimporter_caches=new_dist_is_zipped,
+                )
+            except Exception:
                 update_dist_caches(destination, fix_zipimporter_caches=False)
                 raise
 
@@ -903,8 +951,8 @@ class easy_install(Command):
         )
 
         # Convert the .exe to an unpacked egg
-        egg_path = dist.location = os.path.join(tmpdir, dist.egg_name() +
-                                                '.egg')
+        egg_path = os.path.join(tmpdir, dist.egg_name() + '.egg')
+        dist.location = egg_path
         egg_tmp = egg_path + '.tmp'
         _egg_info = os.path.join(egg_tmp, 'EGG-INFO')
         pkg_inf = os.path.join(_egg_info, 'PKG-INFO')
@@ -922,13 +970,13 @@ class easy_install(Command):
             f.close()
         script_dir = os.path.join(_egg_info, 'scripts')
         # delete entry-point scripts to avoid duping
-        self.delete_blockers(
-            [os.path.join(script_dir, args[0]) for args in
-             ScriptWriter.get_args(dist)]
-        )
+        self.delete_blockers([
+            os.path.join(script_dir, args[0])
+            for args in ScriptWriter.get_args(dist)
+        ])
         # Build .egg file from tmpdir
         bdist_egg.make_zipfile(
-            egg_path, egg_tmp, verbose=self.verbose, dry_run=self.dry_run
+            egg_path, egg_tmp, verbose=self.verbose, dry_run=self.dry_run,
         )
         # install the .egg
         return self.install_egg(egg_path, tmpdir)
@@ -1116,7 +1164,7 @@ class easy_install(Command):
             if dist.location in self.pth_file.paths:
                 log.info(
                     "%s is already the active version in easy-install.pth",
-                    dist
+                    dist,
                 )
             else:
                 log.info("Adding %s to easy-install.pth file", dist)
@@ -1177,7 +1225,7 @@ class easy_install(Command):
             if self.optimize:
                 byte_compile(
                     to_compile, optimize=self.optimize, force=1,
-                    dry_run=self.dry_run
+                    dry_run=self.dry_run,
                 )
         finally:
             log.set_verbosity(self.verbose)  # restore original verbosity
@@ -1224,17 +1272,14 @@ class easy_install(Command):
 
         sitepy = os.path.join(self.install_dir, "site.py")
         source = resource_string("setuptools", "site-patch.py")
+        source = source.decode('utf-8')
         current = ""
 
         if os.path.exists(sitepy):
             log.debug("Checking existing site.py in %s", self.install_dir)
-            f = open(sitepy, 'rb')
-            current = f.read()
-            # we want str, not bytes
-            if PY3:
-                current = current.decode()
+            with io.open(sitepy) as strm:
+                current = strm.read()
 
-            f.close()
             if not current.startswith('def __boot():'):
                 raise DistutilsError(
                     "%s is not a setuptools-generated site.py; please"
@@ -1245,9 +1290,8 @@ class easy_install(Command):
             log.info("Creating %s", sitepy)
             if not self.dry_run:
                 ensure_directory(sitepy)
-                f = open(sitepy, 'wb')
-                f.write(source)
-                f.close()
+                with io.open(sitepy, 'w', encoding='utf-8') as strm:
+                    strm.write(source)
             self.byte_compile([sitepy])
 
         self.sitepy_installed = True
@@ -1257,7 +1301,7 @@ class easy_install(Command):
         if not self.user:
             return
         home = convert_path(os.path.expanduser("~"))
-        for name, path in iteritems(self.config_vars):
+        for name, path in six.iteritems(self.config_vars):
             if path.startswith(home) and not os.path.isdir(path):
                 self.debug_print("os.makedirs('%s', 0o700)" % path)
                 os.makedirs(path, 0o700)
@@ -1309,15 +1353,20 @@ def get_site_dirs():
             if sys.platform in ('os2emx', 'riscos'):
                 sitedirs.append(os.path.join(prefix, "Lib", "site-packages"))
             elif os.sep == '/':
-                sitedirs.extend([os.path.join(prefix,
-                                              "lib",
-                                              "python" + sys.version[:3],
-                                              "site-packages"),
-                                 os.path.join(prefix, "lib", "site-python")])
+                sitedirs.extend([
+                    os.path.join(
+                        prefix,
+                        "lib",
+                        "python" + sys.version[:3],
+                        "site-packages",
+                    ),
+                    os.path.join(prefix, "lib", "site-python"),
+                ])
             else:
-                sitedirs.extend(
-                    [prefix, os.path.join(prefix, "lib", "site-packages")]
-                )
+                sitedirs.extend([
+                    prefix,
+                    os.path.join(prefix, "lib", "site-packages"),
+                ])
             if sys.platform == 'darwin':
                 # for framework builds *only* we add the standard Apple
                 # locations. Currently only per-user, but /Library and
@@ -1325,12 +1374,14 @@ def get_site_dirs():
                 if 'Python.framework' in prefix:
                     home = os.environ.get('HOME')
                     if home:
-                        sitedirs.append(
-                            os.path.join(home,
-                                         'Library',
-                                         'Python',
-                                         sys.version[:3],
-                                         'site-packages'))
+                        home_sp = os.path.join(
+                            home,
+                            'Library',
+                            'Python',
+                            sys.version[:3],
+                            'site-packages',
+                        )
+                        sitedirs.append(home_sp)
     lib_paths = get_path('purelib'), get_path('platlib')
     for site_lib in lib_paths:
         if site_lib not in sitedirs:
@@ -1338,6 +1389,11 @@ def get_site_dirs():
 
     if site.ENABLE_USER_SITE:
         sitedirs.append(site.USER_SITE)
+
+    try:
+        sitedirs.extend(site.getsitepackages())
+    except AttributeError:
+        pass
 
     sitedirs = list(map(normalize_path, sitedirs))
 
@@ -1388,7 +1444,7 @@ def expand_paths(inputs):
 def extract_wininst_cfg(dist_filename):
     """Extract configuration data from a bdist_wininst .exe
 
-    Returns a ConfigParser.RawConfigParser, or None
+    Returns a configparser.RawConfigParser, or None
     """
     f = open(dist_filename, 'rb')
     try:
@@ -1401,30 +1457,22 @@ def extract_wininst_cfg(dist_filename):
             return None
         f.seek(prepended - 12)
 
-        from setuptools.compat import StringIO, ConfigParser
-        import struct
-
         tag, cfglen, bmlen = struct.unpack("<iii", f.read(12))
         if tag not in (0x1234567A, 0x1234567B):
             return None  # not a valid tag
 
         f.seek(prepended - (12 + cfglen))
-        cfg = ConfigParser.RawConfigParser(
-            {'version': '', 'target_version': ''})
+        init = {'version': '', 'target_version': ''}
+        cfg = configparser.RawConfigParser(init)
         try:
             part = f.read(cfglen)
-            # part is in bytes, but we need to read up to the first null
-            # byte.
-            if sys.version_info >= (2, 6):
-                null_byte = bytes([0])
-            else:
-                null_byte = chr(0)
-            config = part.split(null_byte, 1)[0]
+            # Read up to the first null byte.
+            config = part.split(b'\0', 1)[0]
             # Now the config is in bytes, but for RawConfigParser, it should
             #  be text, so decode it.
             config = config.decode(sys.getfilesystemencoding())
-            cfg.readfp(StringIO(config))
-        except ConfigParser.Error:
+            cfg.readfp(six.StringIO(config))
+        except configparser.Error:
             return None
         if not cfg.has_section('metadata') or not cfg.has_section('Setup'):
             return None
@@ -1438,7 +1486,8 @@ def get_exe_prefixes(exe_filename):
     """Get exe->egg path translations for a given .exe file"""
 
     prefixes = [
-        ('PURELIB/', ''), ('PLATLIB/pywin32_system32', ''),
+        ('PURELIB/', ''),
+        ('PLATLIB/pywin32_system32', ''),
         ('PLATLIB/', ''),
         ('SCRIPTS/', 'EGG-INFO/scripts/'),
         ('DATA/lib/site-packages', ''),
@@ -1458,7 +1507,7 @@ def get_exe_prefixes(exe_filename):
                 continue
             if parts[0].upper() in ('PURELIB', 'PLATLIB'):
                 contents = z.read(name)
-                if PY3:
+                if six.PY3:
                     contents = contents.decode()
                 for pth in yield_lines(contents):
                     pth = pth.strip().replace('\\', '/')
@@ -1531,29 +1580,26 @@ class PthDistributions(Environment):
         if not self.dirty:
             return
 
-        data = '\n'.join(map(self.make_relative, self.paths))
-        if data:
+        rel_paths = list(map(self.make_relative, self.paths))
+        if rel_paths:
             log.debug("Saving %s", self.filename)
-            data = (
-                "import sys; sys.__plen = len(sys.path)\n"
-                "%s\n"
-                "import sys; new=sys.path[sys.__plen:];"
-                " del sys.path[sys.__plen:];"
-                " p=getattr(sys,'__egginsert',0); sys.path[p:p]=new;"
-                " sys.__egginsert = p+len(new)\n"
-            ) % data
+            lines = self._wrap_lines(rel_paths)
+            data = '\n'.join(lines) + '\n'
 
             if os.path.islink(self.filename):
                 os.unlink(self.filename)
-            f = open(self.filename, 'wt')
-            f.write(data)
-            f.close()
+            with open(self.filename, 'wt') as f:
+                f.write(data)
 
         elif os.path.exists(self.filename):
             log.debug("Deleting empty %s", self.filename)
             os.unlink(self.filename)
 
         self.dirty = False
+
+    @staticmethod
+    def _wrap_lines(lines):
+        return lines
 
     def add(self, dist):
         """Add `dist` to the distribution map"""
@@ -1592,6 +1638,33 @@ class PthDistributions(Environment):
             return path
 
 
+class RewritePthDistributions(PthDistributions):
+
+    @classmethod
+    def _wrap_lines(cls, lines):
+        yield cls.prelude
+        for line in lines:
+            yield line
+        yield cls.postlude
+
+    prelude = _one_liner("""
+        import sys
+        sys.__plen = len(sys.path)
+        """)
+    postlude = _one_liner("""
+        import sys
+        new = sys.path[sys.__plen:]
+        del sys.path[sys.__plen:]
+        p = getattr(sys, '__egginsert', 0)
+        sys.path[p:p] = new
+        sys.__egginsert = p + len(new)
+        """)
+
+
+if os.environ.get('SETUPTOOLS_SYS_PATH_TECHNIQUE', 'raw') == 'rewrite':
+    PthDistributions = RewritePthDistributions
+
+
 def _first_line_re():
     """
     Return a regular expression based on first_line_re suitable for matching
@@ -1609,7 +1682,7 @@ def auto_chmod(func, arg, exc):
         chmod(arg, stat.S_IWRITE)
         return func(arg)
     et, ev, _ = sys.exc_info()
-    reraise(et, (ev[0], ev[1] + (" %s %s" % (func, arg))))
+    six.reraise(et, (ev[0], ev[1] + (" %s %s" % (func, arg))))
 
 
 def update_dist_caches(dist_path, fix_zipimporter_caches):
@@ -1737,7 +1810,7 @@ def _update_zipimporter_cache(normalized_path, cache, updater=None):
         #  * Does not support the dict.pop() method, forcing us to use the
         #    get/del patterns instead. For more detailed information see the
         #    following links:
-        #      https://bitbucket.org/pypa/setuptools/issue/202/more-robust-zipimporter-cache-invalidation#comment-10495960
+        #      https://github.com/pypa/setuptools/issues/202#issuecomment-202913420
         #      https://bitbucket.org/pypy/pypy/src/dd07756a34a41f674c0cacfbc8ae1d4cc9ea2ae4/pypy/module/zipimport/interp_zipimport.py#cl-99
         old_entry = cache[p]
         del cache[p]
@@ -1757,6 +1830,7 @@ def _remove_and_clear_zip_directory_cache_data(normalized_path):
     _update_zipimporter_cache(
         normalized_path, zipimport._zip_directory_cache,
         updater=clear_and_remove_cached_zip_archive_directory_data)
+
 
 # PyPy Python implementation does not allow directly writing to the
 # zipimport._zip_directory_cache and so prevents us from attempting to correct
@@ -1844,17 +1918,6 @@ def chmod(path, mode):
         log.debug("chmod failed: %s", e)
 
 
-def fix_jython_executable(executable, options):
-    warnings.warn("Use JythonCommandSpec", DeprecationWarning, stacklevel=2)
-
-    if not JythonCommandSpec.relevant():
-        return executable
-
-    cmd = CommandSpec.best().from_param(executable)
-    cmd.install_options(options)
-    return cmd.as_header().lstrip('#!').rstrip('\n')
-
-
 class CommandSpec(list):
     """
     A command spec for a #! header, specified as a list of arguments akin to
@@ -1869,7 +1932,7 @@ class CommandSpec(list):
         """
         Choose the best CommandSpec class based on environmental conditions.
         """
-        return cls if not JythonCommandSpec.relevant() else JythonCommandSpec
+        return cls
 
     @classmethod
     def _sys_executable(cls):
@@ -1924,9 +1987,19 @@ class CommandSpec(list):
         return self._render(self + list(self.options))
 
     @staticmethod
+    def _strip_quotes(item):
+        _QUOTES = '"\''
+        for q in _QUOTES:
+            if item.startswith(q) and item.endswith(q):
+                return item[1:-1]
+        return item
+
+    @staticmethod
     def _render(items):
-        cmdline = subprocess.list2cmdline(items)
+        cmdline = subprocess.list2cmdline(
+            CommandSpec._strip_quotes(item.strip()) for item in items)
         return '#!' + cmdline + '\n'
+
 
 # For pbr compat; will be removed in a future version.
 sys_executable = CommandSpec._sys_executable()
@@ -1934,45 +2007,6 @@ sys_executable = CommandSpec._sys_executable()
 
 class WindowsCommandSpec(CommandSpec):
     split_args = dict(posix=False)
-
-
-class JythonCommandSpec(CommandSpec):
-    @classmethod
-    def relevant(cls):
-        return (
-            sys.platform.startswith('java')
-            and
-            __import__('java').lang.System.getProperty('os.name') != 'Linux'
-        )
-
-    @classmethod
-    def from_environment(cls):
-        string = '"' + cls._sys_executable() + '"'
-        return cls.from_string(string)
-
-    @classmethod
-    def from_string(cls, string):
-        return cls([string])
-
-    def as_header(self):
-        """
-        Workaround Jython's sys.executable being a .sh (an invalid
-        shebang line interpreter)
-        """
-        if not is_sh(self[0]):
-            return super(JythonCommandSpec, self).as_header()
-
-        if self.options:
-            # Can't apply the workaround, leave it broken
-            log.warn(
-                "WARNING: Unable to adapt shebang line for Jython,"
-                " the following script is NOT executable\n"
-                "         see http://bugs.jython.org/issue1112 for"
-                " more information.")
-            return super(JythonCommandSpec, self).as_header()
-
-        items = ['/usr/bin/env'] + self + list(self.options)
-        return self._render(items)
 
 
 class ScriptWriter(object):
@@ -1984,10 +2018,12 @@ class ScriptWriter(object):
     template = textwrap.dedent("""
         # EASY-INSTALL-ENTRY-SCRIPT: %(spec)r,%(group)r,%(name)r
         __requires__ = %(spec)r
+        import re
         import sys
         from pkg_resources import load_entry_point
 
         if __name__ == '__main__':
+            sys.argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', sys.argv[0])
             sys.exit(
                 load_entry_point(%(spec)r, %(group)r, %(name)r)()
             )
@@ -2016,7 +2052,8 @@ class ScriptWriter(object):
     @classmethod
     def get_args(cls, dist, header=None):
         """
-        Yield write_script() argument tuples for a distribution's entrypoints
+        Yield write_script() argument tuples for a distribution's
+        console_scripts and gui_scripts entry points.
         """
         if header is None:
             header = cls.get_header()
@@ -2024,10 +2061,20 @@ class ScriptWriter(object):
         for type_ in 'console', 'gui':
             group = type_ + '_scripts'
             for name, ep in dist.get_entry_map(group).items():
+                cls._ensure_safe_name(name)
                 script_text = cls.template % locals()
-                for res in cls._get_script_args(type_, name, header,
-                        script_text):
+                args = cls._get_script_args(type_, name, header, script_text)
+                for res in args:
                     yield res
+
+    @staticmethod
+    def _ensure_safe_name(name):
+        """
+        Prevent paths in *_scripts entry point names.
+        """
+        has_path_sep = re.search(r'[\\/]', name)
+        if has_path_sep:
+            raise ValueError("Path separators not allowed in script names")
 
     @classmethod
     def get_writer(cls, force_windows):
@@ -2040,7 +2087,10 @@ class ScriptWriter(object):
         """
         Select the best ScriptWriter for this environment.
         """
-        return WindowsScriptWriter.best() if sys.platform == 'win32' else cls
+        if sys.platform == 'win32' or (os.name == 'java' and os._name == 'nt'):
+            return WindowsScriptWriter.best()
+        else:
+            return cls
 
     @classmethod
     def _get_script_args(cls, type_, name, header, script_text):
@@ -2082,16 +2132,19 @@ class WindowsScriptWriter(ScriptWriter):
         "For Windows, add a .py extension"
         ext = dict(console='.pya', gui='.pyw')[type_]
         if ext not in os.environ['PATHEXT'].lower().split(';'):
-            warnings.warn("%s not listed in PATHEXT; scripts will not be "
-                          "recognized as executables." % ext, UserWarning)
+            msg = (
+                "{ext} not listed in PATHEXT; scripts will not be "
+                "recognized as executables."
+            ).format(**locals())
+            warnings.warn(msg, UserWarning)
         old = ['.pya', '.py', '-script.py', '.pyc', '.pyo', '.pyw', '.exe']
         old.remove(ext)
         header = cls._adjust_header(type_, header)
         blockers = [name + x for x in old]
         yield name + ext, header + script_text, 't', blockers
 
-    @staticmethod
-    def _adjust_header(type_, orig_header):
+    @classmethod
+    def _adjust_header(cls, type_, orig_header):
         """
         Make sure 'pythonw' is used for gui and and 'python' is used for
         console (regardless of what sys.executable is).
@@ -2102,14 +2155,23 @@ class WindowsScriptWriter(ScriptWriter):
             pattern, repl = repl, pattern
         pattern_ob = re.compile(re.escape(pattern), re.IGNORECASE)
         new_header = pattern_ob.sub(string=orig_header, repl=repl)
+        return new_header if cls._use_header(new_header) else orig_header
+
+    @staticmethod
+    def _use_header(new_header):
+        """
+        Should _adjust_header use the replaced header?
+
+        On non-windows systems, always use. On
+        Windows systems, only use the replaced header if it resolves
+        to an executable on the system.
+        """
         clean_header = new_header[2:-1].strip('"')
-        if sys.platform == 'win32' and not os.path.exists(clean_header):
-            # the adjusted version doesn't exist, so return the original
-            return orig_header
-        return new_header
+        return sys.platform != 'win32' or find_executable(clean_header)
 
 
 class WindowsExecutableLauncherWriter(WindowsScriptWriter):
+
     @classmethod
     def _get_script_args(cls, type_, name, header, script_text):
         """
@@ -2154,8 +2216,6 @@ def get_win_launcher(type):
     Returns the executable as a byte string.
     """
     launcher_fn = '%s.exe' % type
-    if platform.machine().lower() == 'arm':
-        launcher_fn = launcher_fn.replace(".", "-arm.")
     if is_64bit():
         launcher_fn = launcher_fn.replace(".", "-64.")
     else:
@@ -2165,46 +2225,14 @@ def get_win_launcher(type):
 
 def load_launcher_manifest(name):
     manifest = pkg_resources.resource_string(__name__, 'launcher manifest.xml')
-    if PY2:
+    if six.PY2:
         return manifest % vars()
     else:
         return manifest.decode('utf-8') % vars()
 
 
 def rmtree(path, ignore_errors=False, onerror=auto_chmod):
-    """Recursively delete a directory tree.
-
-    This code is taken from the Python 2.4 version of 'shutil', because
-    the 2.3 version doesn't really work right.
-    """
-    if ignore_errors:
-        def onerror(*args):
-            pass
-    elif onerror is None:
-        def onerror(*args):
-            raise
-    names = []
-    try:
-        names = os.listdir(path)
-    except os.error:
-        onerror(os.listdir, path, sys.exc_info())
-    for name in names:
-        fullname = os.path.join(path, name)
-        try:
-            mode = os.lstat(fullname).st_mode
-        except os.error:
-            mode = 0
-        if stat.S_ISDIR(mode):
-            rmtree(fullname, ignore_errors, onerror)
-        else:
-            try:
-                os.remove(fullname)
-            except os.error:
-                onerror(os.remove, fullname, sys.exc_info())
-    try:
-        os.rmdir(path)
-    except os.error:
-        onerror(os.rmdir, path, sys.exc_info())
+    return shutil.rmtree(path, ignore_errors, onerror)
 
 
 def current_umask():
@@ -2241,7 +2269,8 @@ def main(argv=None, **kw):
         setup(
             script_args=['-q', 'easy_install', '-v'] + argv,
             script_name=sys.argv[0] or 'easy_install',
-            distclass=DistributionWithoutHelpCommands, **kw
+            distclass=DistributionWithoutHelpCommands,
+            **kw
         )
 
 

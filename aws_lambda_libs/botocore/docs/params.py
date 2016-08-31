@@ -130,7 +130,6 @@ class ResponseParamsDocumenter(BaseParamsDocumenter):
 
     EVENT_NAME = 'response-params'
 
-
     def _add_member_documentation(self, section, shape, name=None, **kwargs):
         name_section = section.add_new_section('param-name')
         name_section.write('- ')
@@ -150,7 +149,6 @@ class RequestParamsDocumenter(BaseParamsDocumenter):
     """Generates the description for the request parameters"""
 
     EVENT_NAME = 'request-params'
-
 
     def document_shape_type_structure(self, section, shape, history,
                                       include=None, exclude=None, **kwargs):

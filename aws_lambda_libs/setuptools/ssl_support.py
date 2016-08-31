@@ -3,9 +3,10 @@ import socket
 import atexit
 import re
 
+from setuptools.extern.six.moves import urllib, http_client, map
+
 import pkg_resources
 from pkg_resources import ResolutionError, ExtractionError
-from setuptools.compat import urllib2
 
 try:
     import ssl
@@ -24,20 +25,15 @@ cert_paths = """
 /usr/local/share/certs/ca-root.crt
 /etc/ssl/cert.pem
 /System/Library/OpenSSL/certs/cert.pem
+/usr/local/share/certs/ca-root-nss.crt
 """.strip().split()
 
 
-HTTPSHandler = HTTPSConnection = object
-
-for what, where in (
-    ('HTTPSHandler', ['urllib2','urllib.request']),
-    ('HTTPSConnection', ['httplib', 'http.client']),
-):
-    for module in where:
-        try:
-            exec("from %s import %s" % (module, what))
-        except ImportError:
-            pass
+try:
+    HTTPSHandler = urllib.request.HTTPSHandler
+    HTTPSConnection = http_client.HTTPSConnection
+except AttributeError:
+    HTTPSHandler = HTTPSConnection = object
 
 is_available = ssl is not None and object not in (HTTPSHandler, HTTPSConnection)
 
@@ -165,6 +161,7 @@ class VerifyingHTTPSHandler(HTTPSHandler):
 
 class VerifyingHTTPSConn(HTTPSConnection):
     """Simple verifying connection: no auth, subclasses, timeouts, etc."""
+
     def __init__(self, host, ca_bundle, **kw):
         HTTPSConnection.__init__(self, host, **kw)
         self.ca_bundle = ca_bundle
@@ -196,14 +193,16 @@ class VerifyingHTTPSConn(HTTPSConnection):
             self.sock.close()
             raise
 
+
 def opener_for(ca_bundle=None):
     """Get a urlopen() replacement that uses ca_bundle for verification"""
-    return urllib2.build_opener(
+    return urllib.request.build_opener(
         VerifyingHTTPSHandler(ca_bundle or find_ca_bundle())
     ).open
 
 
 _wincerts = None
+
 
 def get_win_certfile():
     global _wincerts
@@ -216,6 +215,7 @@ def get_win_certfile():
         return None
 
     class MyCertFile(CertFile):
+
         def __init__(self, stores=(), certs=()):
             CertFile.__init__(self)
             for store in stores:
@@ -223,13 +223,19 @@ def get_win_certfile():
             self.addcerts(certs)
             atexit.register(self.close)
 
+        def close(self):
+            try:
+                super(MyCertFile, self).close()
+            except OSError:
+                pass
+
     _wincerts = MyCertFile(stores=['CA', 'ROOT'])
     return _wincerts.name
 
 
 def find_ca_bundle():
     """Return an existing CA bundle path, or None"""
-    if os.name=='nt':
+    if os.name == 'nt':
         return get_win_certfile()
     else:
         for cert_path in cert_paths:

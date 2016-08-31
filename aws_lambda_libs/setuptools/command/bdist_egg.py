@@ -2,19 +2,19 @@
 
 Build .egg distributions"""
 
-# This module should be kept compatible with Python 2.3
 from distutils.errors import DistutilsSetupError
 from distutils.dir_util import remove_tree, mkpath
 from distutils import log
 from types import CodeType
 import sys
 import os
-import marshal
 import textwrap
+import marshal
+
+from setuptools.extern import six
 
 from pkg_resources import get_build_platform, Distribution, ensure_directory
 from pkg_resources import EntryPoint
-from setuptools.compat import basestring
 from setuptools.extension import Library
 from setuptools import Command
 
@@ -129,7 +129,7 @@ class bdist_egg(Command):
             self.distribution.data_files.append(item)
 
         try:
-            log.info("installing package data to %s" % self.bdist_dir)
+            log.info("installing package data to %s", self.bdist_dir)
             self.call_command('install_data', force=0, root=None)
         finally:
             self.distribution.data_files = old
@@ -152,7 +152,7 @@ class bdist_egg(Command):
         self.run_command("egg_info")
         # We run install_lib before install_data, because some data hacks
         # pull their data path from the install_lib command.
-        log.info("installing library code to %s" % self.bdist_dir)
+        log.info("installing library code to %s", self.bdist_dir)
         instcmd = self.get_finalized_command('install')
         old_root = instcmd.root
         instcmd.root = None
@@ -169,7 +169,7 @@ class bdist_egg(Command):
             pyfile = os.path.join(self.bdist_dir, strip_module(filename) +
                                   '.py')
             self.stubs.append(pyfile)
-            log.info("creating stub loader for %s" % ext_name)
+            log.info("creating stub loader for %s", ext_name)
             if not self.dry_run:
                 write_stub(os.path.basename(ext_name), pyfile)
             to_compile.append(pyfile)
@@ -186,14 +186,14 @@ class bdist_egg(Command):
         self.mkpath(egg_info)
         if self.distribution.scripts:
             script_dir = os.path.join(egg_info, 'scripts')
-            log.info("installing scripts to %s" % script_dir)
+            log.info("installing scripts to %s", script_dir)
             self.call_command('install_scripts', install_dir=script_dir,
                               no_ep=1)
 
         self.copy_metadata_to(egg_info)
         native_libs = os.path.join(egg_info, "native_libs.txt")
         if all_outputs:
-            log.info("writing %s" % native_libs)
+            log.info("writing %s", native_libs)
             if not self.dry_run:
                 ensure_directory(native_libs)
                 libs_file = open(native_libs, 'wt')
@@ -201,7 +201,7 @@ class bdist_egg(Command):
                 libs_file.write('\n')
                 libs_file.close()
         elif os.path.isfile(native_libs):
-            log.info("removing %s" % native_libs)
+            log.info("removing %s", native_libs)
             if not self.dry_run:
                 os.unlink(native_libs)
 
@@ -406,10 +406,6 @@ def scan_module(egg_dir, base, name, stubs):
             if bad in symbols:
                 log.warn("%s: module MAY be using inspect.%s", module, bad)
                 safe = False
-    if '__name__' in symbols and '__main__' in symbols and '.' not in module:
-        if sys.version[:3] == "2.4":  # -m works w/zipfiles in 2.5
-            log.warn("%s: top-level module may be 'python -m' script", module)
-            safe = False
     return safe
 
 
@@ -418,7 +414,7 @@ def iter_symbols(code):
     for name in code.co_names:
         yield name
     for const in code.co_consts:
-        if isinstance(const, basestring):
+        if isinstance(const, six.string_types):
             yield const
         elif isinstance(const, CodeType):
             for name in iter_symbols(const):
@@ -436,12 +432,13 @@ def can_scan():
 # Attribute names of options for commands that might need to be convinced to
 # install to the egg build directory
 
+
 INSTALL_DIRECTORY_ATTRS = [
     'install_lib', 'install_dir', 'install_data', 'install_base'
 ]
 
 
-def make_zipfile(zip_filename, base_dir, verbose=0, dry_run=0, compress=None,
+def make_zipfile(zip_filename, base_dir, verbose=0, dry_run=0, compress=True,
                  mode='w'):
     """Create a zip file from all the files under 'base_dir'.  The output
     zip file will be named 'base_dir' + ".zip".  Uses either the "zipfile"
@@ -461,13 +458,9 @@ def make_zipfile(zip_filename, base_dir, verbose=0, dry_run=0, compress=None,
                 p = path[len(base_dir) + 1:]
                 if not dry_run:
                     z.write(path, p)
-                log.debug("adding '%s'" % p)
+                log.debug("adding '%s'", p)
 
-    if compress is None:
-        # avoid 2.3 zipimport bug when 64 bits
-        compress = (sys.version >= "2.4")
-
-    compression = [zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED][bool(compress)]
+    compression = zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
     if not dry_run:
         z = zipfile.ZipFile(zip_filename, mode, compression=compression)
         for dirname, dirs, files in os.walk(base_dir):

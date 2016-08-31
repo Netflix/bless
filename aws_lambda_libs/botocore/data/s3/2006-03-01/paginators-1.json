@@ -43,6 +43,16 @@
         "CommonPrefixes"
       ]
     },
+    "ListObjectsV2": {
+      "more_results": "IsTruncated",
+      "limit_key": "MaxKeys",
+      "output_token": "NextContinuationToken",
+      "input_token": "ContinuationToken",
+      "result_key": [
+        "Contents",
+        "CommonPrefixes"
+      ]
+    },
     "ListParts": {
       "more_results": "IsTruncated",
       "limit_key": "MaxParts",

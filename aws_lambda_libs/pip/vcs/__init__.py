@@ -1,6 +1,7 @@
 """Handles all VCS (version control) support"""
 from __future__ import absolute_import
 
+import errno
 import logging
 import os
 import shutil
@@ -8,7 +9,7 @@ import shutil
 from pip._vendor.six.moves.urllib import parse as urllib_parse
 
 from pip.exceptions import BadCommand
-from pip.utils import (display_path, backup_dir, find_command,
+from pip.utils import (display_path, backup_dir, call_subprocess,
                        rmtree, ask_path_exists)
 
 
@@ -55,6 +56,7 @@ class VcsSupport(object):
             return
         if cls.name not in self._registry:
             self._registry[cls.name] = cls
+            logger.debug('Registered VCS backend: %s', cls.name)
 
     def unregister(self, cls=None, name=None):
         if name in self._registry:
@@ -70,8 +72,9 @@ class VcsSupport(object):
         location, e.g. vcs.get_backend_name('/path/to/vcs/checkout')
         """
         for vc_type in self._registry.values():
-            path = os.path.join(location, vc_type.dirname)
-            if os.path.exists(path):
+            if vc_type.controls_location(location):
+                logger.debug('Determine that %s uses VCS: %s',
+                             location, vc_type.name)
                 return vc_type.name
         return None
 
@@ -98,11 +101,7 @@ class VersionControl(object):
 
     def __init__(self, url=None, *args, **kwargs):
         self.url = url
-        self._cmd = None
         super(VersionControl, self).__init__(*args, **kwargs)
-
-    def _filter(self, line):
-        return (logging.DEBUG, line)
 
     def _is_local_repository(self, repo):
         """
@@ -111,15 +110,6 @@ class VersionControl(object):
         """
         drive, tail = os.path.splitdrive(repo)
         return repo.startswith(os.path.sep) or drive
-
-    @property
-    def cmd(self):
-        if self._cmd is not None:
-            return self._cmd
-        command = find_command(self.name)
-        logger.debug('Found command %r at %r', self.name, command)
-        self._cmd = command
-        return command
 
     # See issue #1083 for why this method was introduced:
     # https://github.com/pypa/pip/issues/1083
@@ -193,6 +183,13 @@ class VersionControl(object):
         """
         raise NotImplementedError
 
+    def check_version(self, dest, rev_options):
+        """
+        Return True if the version is identical to what exists and
+        doesn't need to be updated.
+        """
+        raise NotImplementedError
+
     def check_destination(self, dest, url, rev_options, rev_display):
         """
         Prepare a location to receive a checkout/clone.
@@ -213,13 +210,17 @@ class VersionControl(object):
                         display_path(dest),
                         url,
                     )
-                    logger.info(
-                        'Updating %s %s%s',
-                        display_path(dest),
-                        self.repo_name,
-                        rev_display,
-                    )
-                    self.update(dest, rev_options)
+                    if not self.check_version(dest, rev_options):
+                        logger.info(
+                            'Updating %s %s%s',
+                            display_path(dest),
+                            self.repo_name,
+                            rev_display,
+                        )
+                        self.update(dest, rev_options)
+                    else:
+                        logger.info(
+                            'Skipping because already up-to-date.')
                 else:
                     logger.warning(
                         '%s %s in %s exists with URL %s',
@@ -281,13 +282,12 @@ class VersionControl(object):
             rmtree(location)
         self.obtain(location)
 
-    def get_src_requirement(self, dist, location, find_tags=False):
+    def get_src_requirement(self, dist, location):
         """
         Return a string representing the requirement needed to
         redownload the files currently present in location, something
         like:
           {repository_url}@{revision}#egg={project_name}-{version_identifier}
-        If find_tags is True, try to find a tag matching the revision
         """
         raise NotImplementedError
 
@@ -305,14 +305,48 @@ class VersionControl(object):
         """
         raise NotImplementedError
 
+    def run_command(self, cmd, show_stdout=True, cwd=None,
+                    on_returncode='raise',
+                    command_level=logging.DEBUG, command_desc=None,
+                    extra_environ=None, spinner=None):
+        """
+        Run a VCS subcommand
+        This is simply a wrapper around call_subprocess that adds the VCS
+        command name, and checks that the VCS is available
+        """
+        cmd = [self.name] + cmd
+        try:
+            return call_subprocess(cmd, show_stdout, cwd,
+                                   on_returncode, command_level,
+                                   command_desc, extra_environ,
+                                   spinner)
+        except OSError as e:
+            # errno.ENOENT = no such file or directory
+            # In other words, the VCS executable isn't available
+            if e.errno == errno.ENOENT:
+                raise BadCommand('Cannot find command %r' % self.name)
+            else:
+                raise  # re-raise exception if a different error occurred
 
-def get_src_requirement(dist, location, find_tags):
+    @classmethod
+    def controls_location(cls, location):
+        """
+        Check if a location is controlled by the vcs.
+        It is meant to be overridden to implement smarter detection
+        mechanisms for specific vcs.
+        """
+        logger.debug('Checking in %s for %s (%s)...',
+                     location, cls.dirname, cls.name)
+        path = os.path.join(location, cls.dirname)
+        return os.path.exists(path)
+
+
+def get_src_requirement(dist, location):
     version_control = vcs.get_backend_from_location(location)
     if version_control:
         try:
             return version_control().get_src_requirement(dist,
-                                                         location,
-                                                         find_tags)
+                                                         location)
         except BadCommand:
             logger.warning(
                 'cannot determine version of editable source in %s '

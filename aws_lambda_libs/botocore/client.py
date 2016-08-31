@@ -35,6 +35,7 @@ from botocore.utils import get_service_module_name
 from botocore.utils import switch_to_virtual_host_style
 from botocore.utils import switch_host_s3_accelerate
 from botocore.utils import S3_ACCELERATE_ENDPOINT
+from botocore.utils import S3RegionRedirector
 
 
 logger = logging.getLogger(__name__)
@@ -60,10 +61,15 @@ class ClientCreator(object):
                       client_config=None):
         service_model = self._load_service_model(service_name, api_version)
         cls = self._create_client_class(service_name, service_model)
+        endpoint_bridge = ClientEndpointBridge(
+            self._endpoint_resolver, scoped_config, client_config,
+            service_signing_name=service_model.metadata.get('signingName'))
         client_args = self._get_client_args(
             service_model, region_name, is_secure, endpoint_url,
-            verify, credentials, scoped_config, client_config)
-        return cls(**client_args)
+            verify, credentials, scoped_config, client_config, endpoint_bridge)
+        service_client = cls(**client_args)
+        self._create_s3_redirector(service_client, endpoint_bridge)
+        return service_client
 
     def create_client_class(self, service_name, api_version=None):
         service_model = self._load_service_model(service_name, api_version)
@@ -124,21 +130,16 @@ class ClientCreator(object):
                 logger.debug("The s3 config key is not a dictionary type, "
                              "ignoring its value of: %s", s3_configuration)
                 s3_configuration = None
-            # Convert logic for s3 accelerate options in the scoped config
-            # so that the various strings map to the appropriate boolean value.
-            if s3_configuration and \
-                    'use_accelerate_endpoint' in s3_configuration:
-                # Make sure any further modifications to the s3 section will
-                # not affect the scoped config by making a copy of it.
-                s3_configuration = s3_configuration.copy()
-                # Normalize on different possible values of True
-                if s3_configuration['use_accelerate_endpoint'] in [
-                        True, 'True', 'true']:
-                    s3_configuration['use_accelerate_endpoint'] = True
-                else:
-                    s3_configuration['use_accelerate_endpoint'] = False
 
-        # Next specfic client config values takes precedence over
+            # Convert logic for several s3 keys in the scoped config
+            # so that the various strings map to the appropriate boolean value.
+            if s3_configuration:
+                boolean_keys = ['use_accelerate_endpoint',
+                                'payload_signing_enabled']
+                s3_configuration = self._convert_config_to_bool(
+                    s3_configuration, boolean_keys)
+
+        # Next specific client config values takes precedence over
         # specific values in the scoped config.
         if client_config is not None:
             if client_config.s3 is not None:
@@ -154,22 +155,46 @@ class ClientCreator(object):
 
         config_kwargs['s3'] = s3_configuration
 
+    def _convert_config_to_bool(self, config_dict, keys):
+        # Make sure any further modifications to this section of the config
+        # will not affect the scoped config by making a copy of it.
+        config_copy = config_dict.copy()
+        present_keys = [k for k in keys if k in config_copy]
+        for key in present_keys:
+            # Normalize on different possible values of True
+            if config_copy[key] in [True, 'True', 'true']:
+                config_copy[key] = True
+            else:
+                config_copy[key] = False
+        return config_copy
+
+    def _conditionally_unregister_fix_s3_host(self, endpoint_url, emitter):
+        # If the user is providing a custom endpoint, we should not alter it.
+        if endpoint_url is not None:
+            emitter.unregister('before-sign.s3', fix_s3_host)
+
+    def _create_s3_redirector(self, client, endpoint_bridge):
+        if client.meta.service_model.service_name != 's3':
+            return
+        S3RegionRedirector(endpoint_bridge, client).register()
+
     def _get_client_args(self, service_model, region_name, is_secure,
                          endpoint_url, verify, credentials,
-                         scoped_config, client_config):
+                         scoped_config, client_config, endpoint_bridge):
         service_name = service_model.endpoint_prefix
         protocol = service_model.metadata['protocol']
         parameter_validation = True
-        if client_config:
-            parameter_validation = client_config.parameter_validation
+        if client_config and not client_config.parameter_validation:
+            parameter_validation = False
+        elif scoped_config:
+            raw_value = str(scoped_config.get('parameter_validation', ''))
+            if raw_value.lower() == 'false':
+                parameter_validation = False
         serializer = botocore.serialize.create_serializer(
             protocol, parameter_validation)
 
         event_emitter = copy.copy(self._event_emitter)
         response_parser = botocore.parsers.create_parser(protocol)
-        endpoint_bridge = ClientEndpointBridge(
-            self._endpoint_resolver, scoped_config, client_config,
-            service_signing_name=service_model.metadata.get('signingName'))
         endpoint_config = endpoint_bridge.resolve(
             service_name, region_name, endpoint_url, is_secure)
 
@@ -202,6 +227,7 @@ class ClientCreator(object):
         # Add any additional s3 configuration for client
         self._inject_s3_configuration(
             config_kwargs, scoped_config, client_config)
+        self._conditionally_unregister_fix_s3_host(endpoint_url, event_emitter)
 
         new_config = Config(**config_kwargs)
         endpoint_creator = EndpointCreator(event_emitter)
@@ -361,7 +387,7 @@ class ClientEndpointBridge(object):
 
     def _make_url(self, hostname, is_secure, supported_protocols):
         if is_secure and 'https' in supported_protocols:
-            scheme ='https'
+            scheme = 'https'
         else:
             scheme = 'http'
         return '%s://%s' % (scheme, hostname)
@@ -512,8 +538,12 @@ class BaseClient(object):
         return self.meta.service_model
 
     def _make_api_call(self, operation_name, api_params):
-        request_context = {}
         operation_model = self._service_model.operation_model(operation_name)
+        request_context = {
+            'client_region': self.meta.region_name,
+            'client_config': self.meta.config,
+            'has_streaming_input': operation_model.has_streaming_input
+        }
         request_dict = self._convert_to_request_dict(
             api_params, operation_model, context=request_context)
 
@@ -570,7 +600,8 @@ class BaseClient(object):
         request_dict = self._serializer.serialize_to_request(
             api_params, operation_model)
         prepare_request_dict(request_dict, endpoint_url=self._endpoint.host,
-                             user_agent=self._client_config.user_agent)
+                             user_agent=self._client_config.user_agent,
+                             context=context)
         return request_dict
 
     def get_paginator(self, operation_name):

@@ -11,18 +11,22 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 import re
+import time
 import logging
 import datetime
 import hashlib
 import binascii
 import functools
+import weakref
 
 from six import string_types, text_type
 import dateutil.parser
 from dateutil.tz import tzlocal, tzutc
 
+import botocore
 from botocore.exceptions import InvalidExpressionError, ConfigNotFound
-from botocore.exceptions import InvalidDNSNameError
+from botocore.exceptions import InvalidDNSNameError, ClientError
+from botocore.exceptions import MetadataRetrievalError
 from botocore.compat import json, quote, zip_longest, urlsplit, urlunsplit
 from botocore.vendored import requests
 from botocore.compat import OrderedDict
@@ -42,6 +46,7 @@ RESTRICTED_REGIONS = [
     'fips-us-gov-west-1',
 ]
 S3_ACCELERATE_ENDPOINT = 's3-accelerate.amazonaws.com'
+RETRYABLE_HTTP_ERRORS = (requests.Timeout, requests.ConnectionError)
 
 
 class _RetriesExceededError(Exception):
@@ -152,7 +157,7 @@ class InstanceMetadataFetcher(object):
         for i in range(num_attempts):
             try:
                 response = requests.get(url, timeout=timeout)
-            except (requests.Timeout, requests.ConnectionError) as e:
+            except RETRYABLE_HTTP_ERRORS as e:
                 logger.debug("Caught exception while trying to retrieve "
                              "credentials: %s", e, exc_info=True)
             else:
@@ -603,6 +608,7 @@ def is_valid_endpoint_url(endpoint_url):
         re.IGNORECASE)
     return allowed.match(hostname)
 
+
 def check_dns_name(bucket_name):
     """
     Check to see if the ``bucket_name`` complies with the
@@ -641,7 +647,8 @@ def fix_s3_host(request, signature_version, region_name, **kwargs):
     """
     # By default we do not use virtual hosted style addressing when
     # signed with signature version 4.
-    if signature_version in ['s3v4', 'v4']:
+    if signature_version is not botocore.UNSIGNED and \
+            's3v4' in signature_version:
         return
     elif not _allowed_region(region_name):
         return
@@ -779,8 +786,13 @@ def switch_host_with_param(request, param_name):
 
 
 def _switch_hosts(request, new_endpoint, use_new_scheme=True):
+    final_endpoint = _get_new_endpoint(
+        request.url, new_endpoint, use_new_scheme)
+    request.url = final_endpoint
+
+
+def _get_new_endpoint(original_endpoint, new_endpoint, use_new_scheme=True):
     new_endpoint_components = urlsplit(new_endpoint)
-    original_endpoint = request.url
     original_endpoint_components = urlsplit(original_endpoint)
     scheme = original_endpoint_components.scheme
     if use_new_scheme:
@@ -793,5 +805,192 @@ def _switch_hosts(request, new_endpoint, use_new_scheme=True):
         ''
     )
     final_endpoint = urlunsplit(final_endpoint_components)
-    logger.debug('Updating URI from %s to %s' % (request.url, final_endpoint))
-    request.url = final_endpoint
+    logger.debug('Updating URI from %s to %s' % (
+        original_endpoint, final_endpoint))
+    return final_endpoint
+
+
+class S3RegionRedirector(object):
+    def __init__(self, endpoint_bridge, client, cache=None):
+        self._endpoint_resolver = endpoint_bridge
+        self._cache = cache
+        if self._cache is None:
+            self._cache = {}
+
+        # This needs to be a weak ref in order to prevent memory leaks on
+        # python 2.6
+        self._client = weakref.proxy(client)
+
+    def register(self, event_emitter=None):
+        emitter = event_emitter or self._client.meta.events
+        emitter.register('needs-retry.s3', self.redirect_from_error)
+        emitter.register('before-call.s3', self.set_request_url)
+        emitter.register('before-parameter-build.s3',
+                         self.redirect_from_cache)
+
+    def redirect_from_error(self, request_dict, response, operation, **kwargs):
+        """
+        An S3 request sent to the wrong region will return an error that
+        contains the endpoint the request should be sent to. This handler
+        will add the redirect information to the signing context and then
+        redirect the request.
+        """
+        if response is None:
+            # This could be none if there was a ConnectionError or other
+            # transport error.
+            return
+
+        error = response[1].get('Error', {})
+        error_code = error.get('Code')
+
+        if error_code == '301':
+            # A raw 301 error might be returned for several reasons, but we
+            # only want to try to redirect it if it's a HeadObject or
+            # HeadBucket  because all other operations will return
+            # PermanentRedirect if region is incorrect.
+            if operation.name not in ['HeadObject', 'HeadBucket']:
+                return
+        elif error_code != 'PermanentRedirect':
+            return
+
+        bucket = request_dict['context']['signing']['bucket']
+        client_region = request_dict['context'].get('client_region')
+        new_region = self.get_bucket_region(bucket, response)
+
+        if new_region is None:
+            logger.debug(
+                "S3 client configured for region %s but the bucket %s is not "
+                "in that region and the proper region could not be "
+                "automatically determined." % (client_region, bucket))
+            return
+
+        logger.debug(
+            "S3 client configured for region %s but the bucket %s is in region"
+            " %s; Please configure the proper region to avoid multiple "
+            "unnecessary redirects and signing attempts." % (
+                client_region, bucket, new_region))
+
+        endpoint = self._endpoint_resolver.resolve('s3', new_region)
+        endpoint = endpoint['endpoint_url']
+
+        signing_context = {
+            'region': new_region,
+            'bucket': bucket,
+            'endpoint': endpoint
+        }
+        request_dict['context']['signing'] = signing_context
+
+        self._cache[bucket] = signing_context
+        self.set_request_url(request_dict, request_dict['context'])
+
+        # Return 0 so it doesn't wait to retry
+        return 0
+
+    def get_bucket_region(self, bucket, response):
+        """
+        There are multiple potential sources for the new region to redirect to,
+        but they aren't all universally available for use. This will try to
+        find region from response elements, but will fall back to calling
+        HEAD on the bucket if all else fails.
+
+        :param bucket: The bucket to find the region for. This is necessary if
+            the region is not available in the error response.
+        :param response: A response representing a service request that failed
+            due to incorrect region configuration.
+        """
+        # First try to source the region from the headers.
+        service_response = response[1]
+        response_headers = service_response['ResponseMetadata']['HTTPHeaders']
+        if 'x-amz-bucket-region' in response_headers:
+            return response_headers['x-amz-bucket-region']
+
+        # Next, check the error body
+        region = service_response.get('Error', {}).get('Region', None)
+        if region is not None:
+            return region
+
+        # Finally, HEAD the bucket. No other choice sadly.
+        try:
+            response = self._client.head_bucket(Bucket=bucket)
+            headers = response['ResponseMetadata']['HTTPHeaders']
+        except ClientError as e:
+            headers = e.response['ResponseMetadata']['HTTPHeaders']
+
+        region = headers.get('x-amz-bucket-region', None)
+        return region
+
+    def set_request_url(self, params, context, **kwargs):
+        endpoint = context.get('signing', {}).get('endpoint', None)
+        if endpoint is not None:
+            params['url'] = _get_new_endpoint(params['url'], endpoint)
+
+    def redirect_from_cache(self, params, context, **kwargs):
+        """
+        This handler retrieves a given bucket's signing context from the cache
+        and adds it into the request context.
+        """
+        bucket = params.get('Bucket')
+        signing_context = self._cache.get(bucket)
+        if signing_context is not None:
+            context['signing'] = signing_context
+        else:
+            context['signing'] = {'bucket': bucket}
+
+
+class ContainerMetadataFetcher(object):
+
+    TIMEOUT_SECONDS = 2
+    RETRY_ATTEMPTS = 3
+    SLEEP_TIME = 1
+    IP_ADDRESS = '169.254.170.2'
+
+    def __init__(self, session=None, sleep=time.sleep):
+        if session is None:
+            session = requests.Session()
+        self._session = session
+        self._sleep = sleep
+
+    def retrieve_uri(self, relative_uri):
+        """Retrieve JSON metadata from ECS metadata.
+
+        :type relative_uri: str
+        :param relative_uri: A relative URI, e.g "/foo/bar?id=123"
+
+        :return: The parsed JSON response.
+
+        """
+        full_url = self._full_url(relative_uri)
+        headers = {'Accept': 'application/json'}
+        attempts = 0
+        while True:
+            try:
+                return self._get_response(full_url, headers, self.TIMEOUT_SECONDS)
+            except MetadataRetrievalError as e:
+                logger.debug("Received error when attempting to retrieve "
+                             "ECS metadata: %s", e, exc_info=True)
+                self._sleep(self.SLEEP_TIME)
+                attempts += 1
+                if attempts >= self.RETRY_ATTEMPTS:
+                    raise
+
+    def _get_response(self, full_url, headers, timeout):
+        try:
+            response = self._session.get(full_url, headers=headers,
+                                         timeout=timeout)
+            if response.status_code != 200:
+                raise MetadataRetrievalError(
+                    error_msg="Received non 200 response (%s) from ECS metadata: %s"
+                    % (response.status_code, response.content))
+            try:
+                return json.loads(response.content)
+            except ValueError:
+                raise MetadataRetrievalError(
+                    error_msg=("Unable to parse JSON returned from "
+                               "ECS metadata: %s" % response.content))
+        except RETRYABLE_HTTP_ERRORS as e:
+            error_msg = ("Received error when attempting to retrieve "
+                         "ECS metadata: %s" % e)
+            raise MetadataRetrievalError(error_msg=error_msg)
+
+    def _full_url(self, relative_uri):
+        return 'http://%s%s' % (self.IP_ADDRESS, relative_uri)

@@ -6,7 +6,7 @@ import textwrap
 
 from pip.basecommand import Command, SUCCESS
 from pip.download import PipXmlrpcTransport
-from pip.index import PyPI
+from pip.models import PyPI
 from pip.utils import get_terminal_size
 from pip.utils.logging import indent_log
 from pip.exceptions import CommandError
@@ -101,19 +101,29 @@ def transform_hits(hits):
     return package_list
 
 
-def print_results(hits, name_column_width=25, terminal_width=None):
+def print_results(hits, name_column_width=None, terminal_width=None):
+    if not hits:
+        return
+    if name_column_width is None:
+        name_column_width = max([
+            len(hit['name']) + len(hit.get('versions', ['-'])[-1])
+            for hit in hits
+        ]) + 4
+
     installed_packages = [p.project_name for p in pkg_resources.working_set]
     for hit in hits:
         name = hit['name']
         summary = hit['summary'] or ''
+        version = hit.get('versions', ['-'])[-1]
         if terminal_width is not None:
-            # wrap and indent summary to fit terminal
-            summary = textwrap.wrap(
-                summary,
-                terminal_width - name_column_width - 5,
-            )
-            summary = ('\n' + ' ' * (name_column_width + 3)).join(summary)
-        line = '%s - %s' % (name.ljust(name_column_width), summary)
+            target_width = terminal_width - name_column_width - 5
+            if target_width > 10:
+                # wrap and indent summary to fit terminal
+                summary = textwrap.wrap(summary, target_width)
+                summary = ('\n' + ' ' * (name_column_width + 3)).join(summary)
+
+        line = '%-*s - %s' % (name_column_width,
+                              '%s (%s)' % (name, version), summary)
         try:
             logger.info(line)
             if name in installed_packages:

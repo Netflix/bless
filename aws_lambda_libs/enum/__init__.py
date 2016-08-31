@@ -4,7 +4,7 @@ import sys as _sys
 
 __all__ = ['Enum', 'IntEnum', 'unique']
 
-version = 1, 1, 4
+version = 1, 1, 6
 
 pyver = float('%s.%s' % _sys.version_info[:2])
 
@@ -118,10 +118,13 @@ class _EnumDict(dict):
                 leftover from 2.x
 
         """
-        if pyver >= 3.0 and key == '__order__':
-                return
+        if pyver >= 3.0 and key in ('_order_', '__order__'):
+            return
+        elif key == '__order__':
+            key = '_order_'
         if _is_sunder(key):
-            raise ValueError('_names_ are reserved for future Enum use')
+            if key != '_order_':
+                raise ValueError('_names_ are reserved for future Enum use')
         elif _is_dunder(key):
             pass
         elif key in self._member_names:
@@ -168,21 +171,21 @@ class EnumMeta(type):
             del classdict[name]
 
         # py2 support for definition order
-        __order__ = classdict.get('__order__')
-        if __order__ is None:
+        _order_ = classdict.get('_order_')
+        if _order_ is None:
             if pyver < 3.0:
                 try:
-                    __order__ = [name for (name, value) in sorted(members.items(), key=lambda item: item[1])]
+                    _order_ = [name for (name, value) in sorted(members.items(), key=lambda item: item[1])]
                 except TypeError:
-                    __order__ = [name for name in sorted(members.keys())]
+                    _order_ = [name for name in sorted(members.keys())]
             else:
-                __order__ = classdict._member_names
+                _order_ = classdict._member_names
         else:
-            del classdict['__order__']
+            del classdict['_order_']
             if pyver < 3.0:
-                __order__ = __order__.replace(',', ' ').split()
-                aliases = [name for name in members if name not in __order__]
-                __order__ += aliases
+                _order_ = _order_.replace(',', ' ').split()
+                aliases = [name for name in members if name not in _order_]
+                _order_ += aliases
 
         # check for illegal enum names (any others?)
         invalid_names = set(members) & set(['mro'])
@@ -211,7 +214,7 @@ class EnumMeta(type):
         # auto-numbering ;)
         if __new__ is None:
             __new__ = enum_class.__new__
-        for member_name in __order__:
+        for member_name in _order_:
             value = members[member_name]
             if not isinstance(value, tuple):
                 args = (value, )
@@ -441,7 +444,7 @@ class EnumMeta(type):
         else:
             bases = (type, cls)
         classdict = metacls.__prepare__(class_name, bases)
-        __order__ = []
+        _order_ = []
 
         # special processing needed for names?
         if isinstance(names, basestring):
@@ -457,10 +460,10 @@ class EnumMeta(type):
             else:
                 member_name, member_value = item
             classdict[member_name] = member_value
-            __order__.append(member_name)
-        # only set __order__ in classdict if name/value was not from a mapping
+            _order_.append(member_name)
+        # only set _order_ in classdict if name/value was not from a mapping
         if not isinstance(item, basestring):
-            classdict['__order__'] = ' '.join(__order__)
+            classdict['_order_'] = ' '.join(_order_)
         enum_class = metacls.__new__(metacls, class_name, bases, classdict)
 
         # TODO: replace the frame hack if a blessed way to know the calling

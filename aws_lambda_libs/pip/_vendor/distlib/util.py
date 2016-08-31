@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012-2014 The Python Software Foundation.
+# Copyright (C) 2012-2016 The Python Software Foundation.
 # See LICENSE.txt and CONTRIBUTORS.txt.
 #
 import codecs
@@ -20,6 +20,8 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import textwrap
+
 try:
     import threading
 except ImportError:
@@ -28,10 +30,11 @@ import time
 
 from . import DistlibException
 from .compat import (string_types, text_type, shutil, raw_input, StringIO,
-                     cache_from_source, urlopen, httplib, xmlrpclib, splittype,
-                     HTTPHandler, HTTPSHandler as BaseHTTPSHandler,
+                     cache_from_source, urlopen, urljoin, httplib, xmlrpclib,
+                     splittype, HTTPHandler, HTTPSHandler as BaseHTTPSHandler,
                      BaseConfigurator, valid_ident, Container, configparser,
-                     URLError, match_hostname, CertificateError, ZipFile)
+                     URLError, match_hostname, CertificateError, ZipFile,
+                     fsdecode)
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +166,10 @@ def get_executable():
 #    else:
 #        result = sys.executable
 #    return result
-    return sys.executable
+    result = os.path.normcase(sys.executable)
+    if not isinstance(result, text_type):
+        result = fsdecode(result)
+    return result
 
 
 def proceed(prompt, allowed_chars, error_prompt=None, default=None):
@@ -199,8 +205,8 @@ def read_exports(stream):
     data = stream.read()
     stream = StringIO(data)
     try:
-        data = json.load(stream)
-        result = data['extensions']['python.exports']['exports']
+        jdata = json.load(stream)
+        result = jdata['extensions']['python.exports']['exports']
         for group, entries in result.items():
             for k, v in entries.items():
                 s = '%s = %s' % (k, v)
@@ -210,11 +216,22 @@ def read_exports(stream):
         return result
     except Exception:
         stream.seek(0, 0)
+
+    def read_stream(cp, stream):
+        if hasattr(cp, 'read_file'):
+            cp.read_file(stream)
+        else:
+            cp.readfp(stream)
+
     cp = configparser.ConfigParser()
-    if hasattr(cp, 'read_file'):
-        cp.read_file(stream)
-    else:
-        cp.readfp(stream)
+    try:
+        read_stream(cp, stream)
+    except configparser.MissingSectionHeaderError:
+        stream.close()
+        data = textwrap.dedent(data)
+        stream = StringIO(data)
+        read_stream(cp, stream)
+
     result = {}
     for key in cp.sections():
         result[key] = entries = {}
@@ -397,7 +414,7 @@ class FileOperator(object):
         self.record_as_written(path)
 
     def set_mode(self, bits, mask, files):
-        if os.name == 'posix':
+        if os.name == 'posix' or (os.name == 'java' and os._name == 'posix'):
             # Set the executable bits (owner, group, and world) on
             # all the files specified.
             for f in files:
@@ -540,11 +557,10 @@ class ExportEntry(object):
     __hash__ = object.__hash__
 
 
-ENTRY_RE = re.compile(r'''(?P<name>(\w|[-.])+)
+ENTRY_RE = re.compile(r'''(?P<name>(\w|[-.+])+)
                       \s*=\s*(?P<callable>(\w+)([:\.]\w+)*)
                       \s*(\[\s*(?P<flags>\w+(=\w+)?(,\s*\w+(=\w+)?)*)\s*\])?
                       ''', re.VERBOSE)
-
 
 def get_export_entry(specification):
     m = ENTRY_RE.search(specification)
@@ -747,8 +763,9 @@ def _get_external_data(url):
         # using a custom redirect handler.
         resp = urlopen(url)
         headers = resp.info()
-        if headers.get('Content-Type') != 'application/json':
-            logger.debug('Unexpected response for JSON request')
+        ct = headers.get('Content-Type')
+        if not ct.startswith('application/json'):
+            logger.debug('Unexpected response for JSON request: %s', ct)
         else:
             reader = codecs.getreader('utf-8')(resp)
             #data = reader.read().decode('utf-8')
@@ -758,16 +775,17 @@ def _get_external_data(url):
         logger.exception('Failed to get external data for %s: %s', url, e)
     return result
 
+_external_data_base_url = 'https://www.red-dove.com/pypi/projects/'
 
 def get_project_data(name):
-    url = ('https://www.red-dove.com/pypi/projects/'
-           '%s/%s/project.json' % (name[0].upper(), name))
+    url = '%s/%s/project.json' % (name[0].upper(), name)
+    url = urljoin(_external_data_base_url, url)
     result = _get_external_data(url)
     return result
 
 def get_package_data(name, version):
-    url = ('https://www.red-dove.com/pypi/projects/'
-           '%s/%s/package-%s.json' % (name[0].upper(), name, version))
+    url = '%s/%s/package-%s.json' % (name[0].upper(), name, version)
+    url = urljoin(_external_data_base_url, url)
     return _get_external_data(url)
 
 

@@ -35,8 +35,11 @@ def resolve_common_type(parser, commontype):
                                "you call ffi.set_unicode()" % (commontype,))
         else:
             if commontype == cdecl:
-                raise api.FFIError("Unsupported type: %r.  Please file a bug "
-                                   "if you think it should be." % (commontype,))
+                raise api.FFIError(
+                    "Unsupported type: %r.  Please look at "
+        "http://cffi.readthedocs.io/en/latest/cdef.html#ffi-cdef-limitations "
+                    "and file an issue if you think this type should really "
+                    "be supported." % (commontype,))
             result, quals = parser.parse_type_and_quals(cdecl)   # recursive
 
         assert isinstance(result, model.BaseTypeByIdentity)

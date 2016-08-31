@@ -59,6 +59,10 @@ class Config(object):
           endpoint is being used then the addressing style will always
           be virtual.
 
+        * 'payload_signing_enabled' -- Refers to whether or not to SHA256
+          sign sigv4 payloads. By default, this is disabled for streaming
+          uploads (UploadPart and PutObject).
+
         * 'addressing_style' -- Refers to the style in which to address
           s3 endpoints. Values must be a string that equals:
 

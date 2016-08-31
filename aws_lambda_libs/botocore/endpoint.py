@@ -142,7 +142,7 @@ class Endpoint(object):
         request = self.create_request(request_dict, operation_model)
         success_response, exception = self._get_response(
             request, operation_model, attempts)
-        while self._needs_retry(attempts, operation_model,
+        while self._needs_retry(attempts, operation_model, request_dict,
                                 success_response, exception):
             attempts += 1
             # If there is a stream associated with the request, we need
@@ -152,7 +152,7 @@ class Endpoint(object):
             request.reset_stream()
             # Create a new request when retried (including a new signature).
             request = self.create_request(
-                request_dict, operation_model=operation_model)
+                request_dict, operation_model)
             success_response, exception = self._get_response(
                 request, operation_model, attempts)
         if exception is not None:
@@ -199,9 +199,9 @@ class Endpoint(object):
                                                  operation_model)
         parser = self._response_parser_factory.create_parser(
             operation_model.metadata['protocol'])
-        return ((http_response,
-                 parser.parse(response_dict, operation_model.output_shape)),
-                None)
+        parsed_response = parser.parse(
+            response_dict, operation_model.output_shape)
+        return (http_response, parsed_response), None
 
     def _looks_like_dns_error(self, e):
         return 'gaierror' in str(e) and e.request is not None
@@ -209,14 +209,14 @@ class Endpoint(object):
     def _looks_like_bad_status_line(self, e):
         return 'BadStatusLine' in str(e) and e.request is not None
 
-    def _needs_retry(self, attempts, operation_model, response=None,
-                     caught_exception=None):
+    def _needs_retry(self, attempts, operation_model, request_dict,
+                     response=None, caught_exception=None):
         event_name = 'needs-retry.%s.%s' % (self._endpoint_prefix,
                                             operation_model.name)
         responses = self._event_emitter.emit(
             event_name, response=response, endpoint=self,
             operation=operation_model, attempts=attempts,
-            caught_exception=caught_exception)
+            caught_exception=caught_exception, request_dict=request_dict)
         handler_response = first_non_none_response(responses)
         if handler_response is None:
             return False

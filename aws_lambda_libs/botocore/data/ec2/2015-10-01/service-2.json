@@ -1108,6 +1108,16 @@
       "output":{"shape":"DescribeScheduledInstancesResult"},
       "documentation":"<p>Describes one or more of your Scheduled Instances.</p>"
     },
+    "DescribeSecurityGroupReferences":{
+      "name":"DescribeSecurityGroupReferences",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"DescribeSecurityGroupReferencesRequest"},
+      "output":{"shape":"DescribeSecurityGroupReferencesResult"},
+      "documentation":"<p>[EC2-VPC only] Describes the VPCs on the other side of a VPC peering connection that are referencing the security groups you've specified in this request. </p>"
+    },
     "DescribeSecurityGroups":{
       "name":"DescribeSecurityGroups",
       "http":{
@@ -1197,6 +1207,16 @@
       "input":{"shape":"DescribeSpotPriceHistoryRequest"},
       "output":{"shape":"DescribeSpotPriceHistoryResult"},
       "documentation":"<p>Describes the Spot price history. The prices returned are listed in chronological order, from the oldest to the most recent, for up to the past 90 days. For more information, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-spot-instances-history.html\">Spot Instance Pricing History</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p> <p>When you specify a start and end time, this operation returns the prices of the instance types within the time range that you specified and the time when the price changed. The price is valid within the time period that you specified; the response merely indicates the last time that the price changed.</p>"
+    },
+    "DescribeStaleSecurityGroups":{
+      "name":"DescribeStaleSecurityGroups",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"DescribeStaleSecurityGroupsRequest"},
+      "output":{"shape":"DescribeStaleSecurityGroupsResult"},
+      "documentation":"<p>[EC2-VPC only] Describes the stale security group rules for security groups in a specified VPC. Rules are stale when they reference a deleted security group in a peer VPC, or a security group in a peer VPC for which the VPC peering connection has been deleted. </p>"
     },
     "DescribeSubnets":{
       "name":"DescribeSubnets",
@@ -1480,6 +1500,16 @@
       "output":{"shape":"GetConsoleOutputResult"},
       "documentation":"<p>Gets the console output for the specified instance.</p> <p>Instances do not have a physical monitor through which you can view their console output. They also lack physical controls that allow you to power up, reboot, or shut them down. To allow these actions, we provide them through the Amazon EC2 API and command line interface.</p> <p>Instance console output is buffered and posted shortly after instance boot, reboot, and termination. Amazon EC2 preserves the most recent 64 KB output which is available for at least one hour after the most recent post.</p> <p>For Linux instances, the instance console output displays the exact console output that would normally be displayed on a physical monitor attached to a computer. This output is buffered because the instance produces it and then posts it to a store where the instance's owner can retrieve it.</p> <p>For Windows instances, the instance console output includes output from the EC2Config service.</p>"
     },
+    "GetConsoleScreenshot":{
+      "name":"GetConsoleScreenshot",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"GetConsoleScreenshotRequest"},
+      "output":{"shape":"GetConsoleScreenshotResult"},
+      "documentation":"<p>Retrieve a JPG-format screenshot of a running instance to help with troubleshooting.</p> <p>The returned content is base64-encoded.</p>"
+    },
     "GetPasswordData":{
       "name":"GetPasswordData",
       "http":{
@@ -1690,7 +1720,7 @@
       },
       "input":{"shape":"MoveAddressToVpcRequest"},
       "output":{"shape":"MoveAddressToVpcResult"},
-      "documentation":"<p>Moves an Elastic IP address from the EC2-Classic platform to the EC2-VPC platform. The Elastic IP address must be allocated to your account for more than 24 hours, and it must not be associated with an instance. After the Elastic IP address is moved, it is no longer available for use in the EC2-Classic platform, unless you move it back using the <a>RestoreAddressToClassic</a> request. You cannot move an Elastic IP address that was originally allocated for use in the EC2-VPC platform to the EC2-Classic platform. You cannot migrate an Elastic IP address that's associated with a reverse DNS record. Contact AWS account and billing support to remove the reverse DNS record. </p>"
+      "documentation":"<p>Moves an Elastic IP address from the EC2-Classic platform to the EC2-VPC platform. The Elastic IP address must be allocated to your account for more than 24 hours, and it must not be associated with an instance. After the Elastic IP address is moved, it is no longer available for use in the EC2-Classic platform, unless you move it back using the <a>RestoreAddressToClassic</a> request. You cannot move an Elastic IP address that was originally allocated for use in the EC2-VPC platform to the EC2-Classic platform. </p>"
     },
     "PurchaseReservedInstancesOffering":{
       "name":"PurchaseReservedInstancesOffering",
@@ -1843,7 +1873,7 @@
         "requestUri":"/"
       },
       "input":{"shape":"ResetInstanceAttributeRequest"},
-      "documentation":"<p>Resets an attribute of an instance to its default value. To reset the <code>kernel</code> or <code>ramdisk</code>, the instance must be in a stopped state. To reset the <code>SourceDestCheck</code>, the instance can be either running or stopped.</p> <p>The <code>SourceDestCheck</code> attribute controls whether source/destination checking is enabled. The default value is <code>true</code>, which means checking is enabled. This value must be <code>false</code> for a NAT instance to perform NAT. For more information, see <a href=\"http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_NAT_Instance.html\">NAT Instances</a> in the <i>Amazon Virtual Private Cloud User Guide</i>.</p>"
+      "documentation":"<p>Resets an attribute of an instance to its default value. To reset the <code>kernel</code> or <code>ramdisk</code>, the instance must be in a stopped state. To reset the <code>sourceDestCheck</code>, the instance can be either running or stopped.</p> <p>The <code>sourceDestCheck</code> attribute controls whether source/destination checking is enabled. The default value is <code>true</code>, which means checking is enabled. This value must be <code>false</code> for a NAT instance to perform NAT. For more information, see <a href=\"http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_NAT_Instance.html\">NAT Instances</a> in the <i>Amazon Virtual Private Cloud User Guide</i>.</p>"
     },
     "ResetNetworkInterfaceAttribute":{
       "name":"ResetNetworkInterfaceAttribute",
@@ -1871,7 +1901,7 @@
       },
       "input":{"shape":"RestoreAddressToClassicRequest"},
       "output":{"shape":"RestoreAddressToClassicResult"},
-      "documentation":"<p>Restores an Elastic IP address that was previously moved to the EC2-VPC platform back to the EC2-Classic platform. You cannot move an Elastic IP address that was originally allocated for use in EC2-VPC. The Elastic IP address must not be associated with an instance or network interface. You cannot restore an Elastic IP address that's associated with a reverse DNS record. Contact AWS account and billing support to remove the reverse DNS record. </p>"
+      "documentation":"<p>Restores an Elastic IP address that was previously moved to the EC2-VPC platform back to the EC2-Classic platform. You cannot move an Elastic IP address that was originally allocated for use in EC2-VPC. The Elastic IP address must not be associated with an instance or network interface. </p>"
     },
     "RevokeSecurityGroupEgress":{
       "name":"RevokeSecurityGroupEgress",
@@ -1899,7 +1929,7 @@
       },
       "input":{"shape":"RunInstancesRequest"},
       "output":{"shape":"Reservation"},
-      "documentation":"<p>Launches the specified number of instances using an AMI for which you have permissions.</p> <p>When you launch an instance, it enters the <code>pending</code> state. After the instance is ready for you, it enters the <code>running</code> state. To check the state of your instance, call <a>DescribeInstances</a>.</p> <p>To ensure faster instance launches, break up large requests into smaller batches. For example, create five separate launch requests for 100 instances each instead of one launch request for 500 instances.</p> <p>If you don't specify a security group when launching an instance, Amazon EC2 uses the default security group. For more information, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-network-security.html\">Security Groups</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p> <p>[EC2-VPC only accounts] If you don't specify a subnet in the request, we choose a default subnet from your default VPC for you. </p> <p>[EC2-Classic accounts] If you're launching into EC2-Classic and you don't specify an Availability Zone, we choose one for you.</p> <p>Linux instances have access to the public key of the key pair at boot. You can use this key to provide secure access to the instance. Amazon EC2 public images use this feature to provide secure access without passwords. For more information, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html\">Key Pairs</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p> <p>You can provide optional user data when launching an instance. For more information, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html\">Instance Metadata</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p> <p>If any of the AMIs have a product code attached for which the user has not subscribed, <code>RunInstances</code> fails.</p> <p>Some instance types can only be launched into a VPC. If you do not have a default VPC, or if you do not specify a subnet ID in the request, <code>RunInstances</code> fails. For more information, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html#vpc-only-instance-types\">Instance Types Available Only in a VPC</a>.</p> <p>For more information about troubleshooting, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_InstanceStraightToTerminated.html\">What To Do If An Instance Immediately Terminates</a>, and <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesConnecting.html\">Troubleshooting Connecting to Your Instance</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p>"
+      "documentation":"<p>Launches the specified number of instances using an AMI for which you have permissions.</p> <p>When you launch an instance, it enters the <code>pending</code> state. After the instance is ready for you, it enters the <code>running</code> state. To check the state of your instance, call <a>DescribeInstances</a>.</p> <p>To ensure faster instance launches, break up large requests into smaller batches. For example, create five separate launch requests for 100 instances each instead of one launch request for 500 instances.</p> <p>To tag your instance, ensure that it is <code>running</code> as <a>CreateTags</a> requires a resource ID. For more information about tagging, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html\">Tagging Your Amazon EC2 Resources</a>.</p> <p>If you don't specify a security group when launching an instance, Amazon EC2 uses the default security group. For more information, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-network-security.html\">Security Groups</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p> <p>[EC2-VPC only accounts] If you don't specify a subnet in the request, we choose a default subnet from your default VPC for you. </p> <p>[EC2-Classic accounts] If you're launching into EC2-Classic and you don't specify an Availability Zone, we choose one for you.</p> <p>Linux instances have access to the public key of the key pair at boot. You can use this key to provide secure access to the instance. Amazon EC2 public images use this feature to provide secure access without passwords. For more information, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html\">Key Pairs</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p> <p>You can provide optional user data when launching an instance. For more information, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html\">Instance Metadata</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p> <p>If any of the AMIs have a product code attached for which the user has not subscribed, <code>RunInstances</code> fails.</p> <p>Some instance types can only be launched into a VPC. If you do not have a default VPC, or if you do not specify a subnet ID in the request, <code>RunInstances</code> fails. For more information, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html#vpc-only-instance-types\">Instance Types Available Only in a VPC</a>.</p> <p>For more information about troubleshooting, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_InstanceStraightToTerminated.html\">What To Do If An Instance Immediately Terminates</a>, and <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesConnecting.html\">Troubleshooting Connecting to Your Instance</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p>"
     },
     "RunScheduledInstances":{
       "name":"RunScheduledInstances",
@@ -1929,7 +1959,7 @@
       },
       "input":{"shape":"StopInstancesRequest"},
       "output":{"shape":"StopInstancesResult"},
-      "documentation":"<p>Stops an Amazon EBS-backed instance. </p> <p>We don't charge hourly usage for a stopped instance, or data transfer fees; however, your root partition Amazon EBS volume remains, continues to persist your data, and you are charged for Amazon EBS volume usage. Each time you transition an instance from stopped to started, Amazon EC2 charges a full instance hour, even if transitions happen multiple times within a single hour.</p> <p>You can't start or stop Spot instances, and you can't stop instance store-backed instances.</p> <p>When you stop an instance, we shut it down. You can restart your instance at any time. Before stopping an instance, make sure it is in a state from which it can be restarted. Stopping an instance does not preserve data stored in RAM.</p> <p>Stopping an instance is different to rebooting or terminating it. For example, when you stop an instance, the root device and any other devices attached to the instance persist. When you terminate an instance, the root device and any other devices attached during the instance launch are automatically deleted. For more information about the differences between rebooting, stopping, and terminating instances, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html\">Instance Lifecycle</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p> <p>For more information about troubleshooting, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesStopping.html\">Troubleshooting Stopping Your Instance</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p>"
+      "documentation":"<p>Stops an Amazon EBS-backed instance. </p> <p>We don't charge hourly usage for a stopped instance, or data transfer fees; however, your root partition Amazon EBS volume remains, continues to persist your data, and you are charged for Amazon EBS volume usage. Each time you transition an instance from stopped to started, Amazon EC2 charges a full instance hour, even if transitions happen multiple times within a single hour.</p> <p>You can't start or stop Spot instances, and you can't stop instance store-backed instances.</p> <p>When you stop an instance, we shut it down. You can restart your instance at any time. Before stopping an instance, make sure it is in a state from which it can be restarted. Stopping an instance does not preserve data stored in RAM.</p> <p>Stopping an instance is different to rebooting or terminating it. For example, when you stop an instance, the root device and any other devices attached to the instance persist. When you terminate an instance, the root device and any other devices attached during the instance launch are automatically deleted. For more information about the differences between rebooting, stopping, and terminating instances, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html\">Instance Lifecycle</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p> <p>When you stop an instance, we attempt to shut it down forcibly after a short while. If your instance appears stuck in the stopping state after a period of time, there may be an issue with the underlying host computer. For more information, see <a href=\"http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesStopping.html\">Troubleshooting Stopping Your Instance</a> in the <i>Amazon Elastic Compute Cloud User Guide</i>.</p>"
     },
     "TerminateInstances":{
       "name":"TerminateInstances",
@@ -3648,7 +3678,7 @@
       "members":{
         "ResourceIds":{
           "shape":"ValueStringList",
-          "documentation":"<p>One or more subnet, network interface, or VPC IDs.</p>",
+          "documentation":"<p>One or more subnet, network interface, or VPC IDs.</p> <p>Constraints: Maximum of 1000 resources</p>",
           "locationName":"ResourceId"
         },
         "ResourceType":{
@@ -3883,7 +3913,7 @@
         },
         "RuleNumber":{
           "shape":"Integer",
-          "documentation":"<p>The rule number for the entry (for example, 100). ACL entries are processed in ascending order by rule number.</p> <p>Constraints: Positive integer from 1 to 32766</p>",
+          "documentation":"<p>The rule number for the entry (for example, 100). ACL entries are processed in ascending order by rule number.</p> <p>Constraints: Positive integer from 1 to 32766. The range 32767 to 65535 is reserved for internal use. </p>",
           "locationName":"ruleNumber"
         },
         "Protocol":{
@@ -5789,7 +5819,7 @@
         },
         "MaxResults":{
           "shape":"Integer",
-          "documentation":"<p>The maximum number of results to return in a single call. To retrieve the remaining results, make another call with the returned <code>NextToken</code> value. This value can be between 5 and 1000. You cannot specify this parameter and the instance IDs parameter in the same call.</p>",
+          "documentation":"<p>The maximum number of results to return in a single call. To retrieve the remaining results, make another call with the returned <code>NextToken</code> value. This value can be between 5 and 1000. You cannot specify this parameter and the instance IDs parameter or tag filters in the same call.</p>",
           "locationName":"maxResults"
         }
       },
@@ -6516,6 +6546,30 @@
       },
       "documentation":"<p>Contains the output of DescribeScheduledInstances.</p>"
     },
+    "DescribeSecurityGroupReferencesRequest":{
+      "type":"structure",
+      "required":["GroupId"],
+      "members":{
+        "DryRun":{
+          "shape":"Boolean",
+          "documentation":"<p>Checks whether you have the required permissions for the operation, without actually making the request, and provides an error response. If you have the required permissions, the error response is DryRunOperation. Otherwise, it is UnauthorizedOperation.</p>"
+        },
+        "GroupId":{
+          "shape":"GroupIds",
+          "documentation":"<p>One or more security group IDs in your account.</p>"
+        }
+      }
+    },
+    "DescribeSecurityGroupReferencesResult":{
+      "type":"structure",
+      "members":{
+        "SecurityGroupReferenceSet":{
+          "shape":"SecurityGroupReferences",
+          "documentation":"<p>Information about the VPCs with the referencing security groups.</p>",
+          "locationName":"securityGroupReferenceSet"
+        }
+      }
+    },
     "DescribeSecurityGroupsRequest":{
       "type":"structure",
       "members":{
@@ -6944,6 +6998,43 @@
         }
       },
       "documentation":"<p>Contains the output of DescribeSpotPriceHistory.</p>"
+    },
+    "DescribeStaleSecurityGroupsRequest":{
+      "type":"structure",
+      "required":["VpcId"],
+      "members":{
+        "DryRun":{
+          "shape":"Boolean",
+          "documentation":"<p>Checks whether you have the required permissions for the operation, without actually making the request, and provides an error response. If you have the required permissions, the error response is DryRunOperation. Otherwise, it is UnauthorizedOperation.</p>"
+        },
+        "VpcId":{
+          "shape":"String",
+          "documentation":"<p>The ID of the VPC.</p>"
+        },
+        "MaxResults":{
+          "shape":"MaxResults",
+          "documentation":"<p>The maximum number of items to return for this request. The request returns a token that you can specify in a subsequent call to get the next set of results.</p>"
+        },
+        "NextToken":{
+          "shape":"NextToken",
+          "documentation":"<p>The token for the next set of items to return. (You received this token from a prior call.)</p>"
+        }
+      }
+    },
+    "DescribeStaleSecurityGroupsResult":{
+      "type":"structure",
+      "members":{
+        "StaleSecurityGroupSet":{
+          "shape":"StaleSecurityGroupSet",
+          "documentation":"<p>Information about the stale security groups.</p>",
+          "locationName":"staleSecurityGroupSet"
+        },
+        "NextToken":{
+          "shape":"String",
+          "documentation":"<p>The token to use when requesting the next set of items. If there are no additional items to return, the string is empty.</p>",
+          "locationName":"nextToken"
+        }
+      }
     },
     "DescribeSubnetsRequest":{
       "type":"structure",
@@ -8247,6 +8338,13 @@
         "locationName":"Filter"
       }
     },
+    "FleetType":{
+      "type":"string",
+      "enum":[
+        "request",
+        "maintain"
+      ]
+    },
     "Float":{"type":"float"},
     "FlowLog":{
       "type":"structure",
@@ -8349,11 +8447,46 @@
         },
         "Output":{
           "shape":"String",
-          "documentation":"<p>The console output, Base64 encoded. If using a command line tool, the tools decode the output for you. </p>",
+          "documentation":"<p>The console output, base64-encoded. If using a command line tool, the tools decode the output for you. </p>",
           "locationName":"output"
         }
       },
       "documentation":"<p>Contains the output of GetConsoleOutput.</p>"
+    },
+    "GetConsoleScreenshotRequest":{
+      "type":"structure",
+      "required":["InstanceId"],
+      "members":{
+        "DryRun":{
+          "shape":"Boolean",
+          "documentation":"<p>Checks whether you have the required permissions for the action, without actually making the request, and provides an error response. If you have the required permissions, the error response is <code>DryRunOperation</code>. Otherwise, it is <code>UnauthorizedOperation</code>.</p>"
+        },
+        "InstanceId":{
+          "shape":"String",
+          "documentation":"<p>The ID of the instance.</p>"
+        },
+        "WakeUp":{
+          "shape":"Boolean",
+          "documentation":"<p>When set to <code>true</code>, acts as keystroke input and wakes up an instance that's in standby or \"sleep\" mode.</p>"
+        }
+      },
+      "documentation":"<p>Contains the parameters for the request.</p>"
+    },
+    "GetConsoleScreenshotResult":{
+      "type":"structure",
+      "members":{
+        "InstanceId":{
+          "shape":"String",
+          "documentation":"<p>The ID of the instance.</p>",
+          "locationName":"instanceId"
+        },
+        "ImageData":{
+          "shape":"String",
+          "documentation":"<p>The data that comprises the image.</p>",
+          "locationName":"imageData"
+        }
+      },
+      "documentation":"<p>Contains the output of the request.</p>"
     },
     "GetPasswordDataRequest":{
       "type":"structure",
@@ -8419,6 +8552,13 @@
       "type":"list",
       "member":{
         "shape":"GroupIdentifier",
+        "locationName":"item"
+      }
+    },
+    "GroupIds":{
+      "type":"list",
+      "member":{
+        "shape":"String",
         "locationName":"item"
       }
     },
@@ -10365,6 +10505,10 @@
         "m2.2xlarge",
         "m2.4xlarge",
         "cr1.8xlarge",
+        "x1.4xlarge",
+        "x1.8xlarge",
+        "x1.16xlarge",
+        "x1.32xlarge",
         "i2.xlarge",
         "i2.2xlarge",
         "i2.4xlarge",
@@ -10513,6 +10657,13 @@
       "type":"list",
       "member":{
         "shape":"IpRange",
+        "locationName":"item"
+      }
+    },
+    "IpRanges":{
+      "type":"list",
+      "member":{
+        "shape":"String",
         "locationName":"item"
       }
     },
@@ -11367,7 +11518,7 @@
         },
         "State":{
           "shape":"NatGatewayState",
-          "documentation":"<p>The state of the NAT gateway.</p>",
+          "documentation":"<p>The state of the NAT gateway.</p> <ul> <li> <p><code>pending</code>: The NAT gateway is being created and is not ready to process traffic.</p> </li> <li> <p><code>failed</code>: The NAT gateway could not be created. Check the <code>failureCode</code> and <code>failureMessage</code> fields for the reason.</p> </li> <li> <p><code>available</code>: The NAT gateway is able to process traffic. This status remains until you delete the NAT gateway, and does not indicate the health of the NAT gateway.</p> </li> <li> <p><code>deleting</code>: The NAT gateway is in the process of being terminated and may still be processing traffic.</p> </li> <li> <p><code>deleted</code>: The NAT gateway has been terminated and is no longer processing traffic.</p> </li> </ul>",
           "locationName":"state"
         },
         "FailureCode":{
@@ -11379,6 +11530,11 @@
           "shape":"String",
           "documentation":"<p>If the NAT gateway could not be created, specifies the error message for the failure, that corresponds to the error code. </p> <ul> <li><p>For InsufficientFreeAddressesInSubnet: \"Subnet has insufficient free addresses to create this NAT gateway\"</p></li> <li><p>For Gateway.NotAttached: \"Network vpc-xxxxxxxx has no Internet gateway attached\"</p></li> <li><p>For InvalidAllocationID.NotFound: \"Elastic IP address eipalloc-xxxxxxxx could not be associated with this NAT gateway\"</p></li> <li><p>For Resource.AlreadyAssociated: \"Elastic IP address eipalloc-xxxxxxxx is already associated\"</p></li> <li><p>For InternalError: \"Network interface eni-xxxxxxxx, created and used internally by this NAT gateway is in an invalid state. Please try again.\"</p></li> <li><p>For InvalidSubnetID.NotFound: \"The specified subnet subnet-xxxxxxxx does not exist or could not be found.\"</p></li> </ul>",
           "locationName":"failureMessage"
+        },
+        "ProvisionedBandwidth":{
+          "shape":"ProvisionedBandwidth",
+          "documentation":"<p>Reserved. If you need to sustain traffic greater than the <a href=\"http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/vpc-nat-gateway.html\">documented limits</a>, contact us through the <a href=\"https://console.aws.amazon.com/support/home?\">Support Center</a>.</p>",
+          "locationName":"provisionedBandwidth"
         }
       },
       "documentation":"<p>Describes a NAT gateway.</p>"
@@ -12050,6 +12206,13 @@
         "locationName":"item"
       }
     },
+    "PrefixListIdSet":{
+      "type":"list",
+      "member":{
+        "shape":"String",
+        "locationName":"item"
+      }
+    },
     "PrefixListSet":{
       "type":"list",
       "member":{
@@ -12237,6 +12400,37 @@
         "shape":"PropagatingVgw",
         "locationName":"item"
       }
+    },
+    "ProvisionedBandwidth":{
+      "type":"structure",
+      "members":{
+        "Provisioned":{
+          "shape":"String",
+          "documentation":"<p>Reserved. If you need to sustain traffic greater than the <a href=\"http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/vpc-nat-gateway.html\">documented limits</a>, contact us through the <a href=\"https://console.aws.amazon.com/support/home?\">Support Center</a>.</p>",
+          "locationName":"provisioned"
+        },
+        "Requested":{
+          "shape":"String",
+          "documentation":"<p>Reserved. If you need to sustain traffic greater than the <a href=\"http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/vpc-nat-gateway.html\">documented limits</a>, contact us through the <a href=\"https://console.aws.amazon.com/support/home?\">Support Center</a>.</p>",
+          "locationName":"requested"
+        },
+        "RequestTime":{
+          "shape":"DateTime",
+          "documentation":"<p>Reserved. If you need to sustain traffic greater than the <a href=\"http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/vpc-nat-gateway.html\">documented limits</a>, contact us through the <a href=\"https://console.aws.amazon.com/support/home?\">Support Center</a>.</p>",
+          "locationName":"requestTime"
+        },
+        "ProvisionTime":{
+          "shape":"DateTime",
+          "documentation":"<p>Reserved. If you need to sustain traffic greater than the <a href=\"http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/vpc-nat-gateway.html\">documented limits</a>, contact us through the <a href=\"https://console.aws.amazon.com/support/home?\">Support Center</a>.</p>",
+          "locationName":"provisionTime"
+        },
+        "Status":{
+          "shape":"String",
+          "documentation":"<p>Reserved. If you need to sustain traffic greater than the <a href=\"http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/vpc-nat-gateway.html\">documented limits</a>, contact us through the <a href=\"https://console.aws.amazon.com/support/home?\">Support Center</a>.</p>",
+          "locationName":"status"
+        }
+      },
+      "documentation":"<p>Reserved. If you need to sustain traffic greater than the <a href=\"http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/vpc-nat-gateway.html\">documented limits</a>, contact us through the <a href=\"https://console.aws.amazon.com/support/home?\">Support Center</a>.</p>"
     },
     "PublicIpStringList":{
       "type":"list",
@@ -13515,7 +13709,7 @@
         },
         "Attribute":{
           "shape":"InstanceAttributeName",
-          "documentation":"<p>The attribute to reset.</p>",
+          "documentation":"<p>The attribute to reset.</p> <important><p>You can only reset the following attributes: <code>kernel</code> | <code>ramdisk</code> | <code>sourceDestCheck</code>. To change an instance attribute, use <a>ModifyInstanceAttribute</a>.</p></important>",
           "locationName":"attribute"
         }
       },
@@ -14625,6 +14819,38 @@
         "locationName":"item"
       }
     },
+    "SecurityGroupReference":{
+      "type":"structure",
+      "required":[
+        "GroupId",
+        "ReferencingVpcId"
+      ],
+      "members":{
+        "GroupId":{
+          "shape":"String",
+          "documentation":"<p>The ID of your security group.</p>",
+          "locationName":"groupId"
+        },
+        "ReferencingVpcId":{
+          "shape":"String",
+          "documentation":"<p>The ID of the VPC with the referencing security group.</p>",
+          "locationName":"referencingVpcId"
+        },
+        "VpcPeeringConnectionId":{
+          "shape":"String",
+          "documentation":"<p>The ID of the VPC peering connection.</p>",
+          "locationName":"vpcPeeringConnectionId"
+        }
+      },
+      "documentation":"<p>Describes a VPC with a security group that references your security group.</p>"
+    },
+    "SecurityGroupReferences":{
+      "type":"list",
+      "member":{
+        "shape":"SecurityGroupReference",
+        "locationName":"item"
+      }
+    },
     "SecurityGroupStringList":{
       "type":"list",
       "member":{
@@ -15135,6 +15361,16 @@
           "shape":"AllocationStrategy",
           "documentation":"<p>Indicates how to allocate the target capacity across the Spot pools specified by the Spot fleet request. The default is <code>lowestPrice</code>.</p>",
           "locationName":"allocationStrategy"
+        },
+        "FulfilledCapacity":{
+          "shape":"Double",
+          "documentation":"<p>The number of units fulfilled by this request compared to the set target capacity.</p>",
+          "locationName":"fulfilledCapacity"
+        },
+        "Type":{
+          "shape":"FleetType",
+          "documentation":"<p>The type of request. Indicates whether the fleet will only <code>request</code> the target capacity or also attempt to <code>maintain</code> it. When you <code>request</code> a certain target capacity, the fleet will only place the required bids. It will not attempt to replenish Spot instances if capacity is diminished, nor will it submit bids in alternative Spot pools if capacity is not available. When you want to <code>maintain</code> a certain target capacity, fleet will place the required bids to meet this target capacity. It will also automatically replenish any interrupted instances. Default: <code>maintain</code>. </p>",
+          "locationName":"type"
         }
       },
       "documentation":"<p>Describes the configuration of a Spot fleet request.</p>"
@@ -15361,6 +15597,93 @@
       "type":"list",
       "member":{
         "shape":"SpotPrice",
+        "locationName":"item"
+      }
+    },
+    "StaleIpPermission":{
+      "type":"structure",
+      "members":{
+        "FromPort":{
+          "shape":"Integer",
+          "documentation":"<p>The start of the port range for the TCP and UDP protocols, or an ICMP type number. A value of <code>-1</code> indicates all ICMP types. </p>",
+          "locationName":"fromPort"
+        },
+        "IpProtocol":{
+          "shape":"String",
+          "documentation":"<p>The IP protocol name (for <code>tcp</code>, <code>udp</code>, and <code>icmp</code>) or number (see <a href=\"http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml\">Protocol Numbers)</a>.</p>",
+          "locationName":"ipProtocol"
+        },
+        "IpRanges":{
+          "shape":"IpRanges",
+          "documentation":"<p>One or more IP ranges. Not applicable for stale security group rules.</p>",
+          "locationName":"ipRanges"
+        },
+        "PrefixListIds":{
+          "shape":"PrefixListIdSet",
+          "documentation":"<p>One or more prefix list IDs for an AWS service. Not applicable for stale security group rules.</p>",
+          "locationName":"prefixListIds"
+        },
+        "ToPort":{
+          "shape":"Integer",
+          "documentation":"<p>The end of the port range for the TCP and UDP protocols, or an ICMP type number. A value of <code>-1</code> indicates all ICMP types. </p>",
+          "locationName":"toPort"
+        },
+        "UserIdGroupPairs":{
+          "shape":"UserIdGroupPairSet",
+          "documentation":"<p>One or more security group pairs. Returns the ID of the referenced security group and VPC, and the ID and status of the VPC peering connection.</p>",
+          "locationName":"groups"
+        }
+      },
+      "documentation":"<p>Describes a stale rule in a security group.</p>"
+    },
+    "StaleIpPermissionSet":{
+      "type":"list",
+      "member":{
+        "shape":"StaleIpPermission",
+        "locationName":"item"
+      }
+    },
+    "StaleSecurityGroup":{
+      "type":"structure",
+      "required":["GroupId"],
+      "members":{
+        "GroupId":{
+          "shape":"String",
+          "documentation":"<p>The ID of the security group.</p>",
+          "locationName":"groupId"
+        },
+        "GroupName":{
+          "shape":"String",
+          "documentation":"<p>The name of the security group.</p>",
+          "locationName":"groupName"
+        },
+        "Description":{
+          "shape":"String",
+          "documentation":"<p>The description of the security group.</p>",
+          "locationName":"description"
+        },
+        "VpcId":{
+          "shape":"String",
+          "documentation":"<p>The ID of the VPC for the security group.</p>",
+          "locationName":"vpcId"
+        },
+        "StaleIpPermissions":{
+          "shape":"StaleIpPermissionSet",
+          "documentation":"<p>Information about the stale inbound rules in the security group.</p>",
+          "locationName":"staleIpPermissions"
+        },
+        "StaleIpPermissionsEgress":{
+          "shape":"StaleIpPermissionSet",
+          "documentation":"<p>Information about the stale outbound rules in the security group.</p>",
+          "locationName":"staleIpPermissionsEgress"
+        }
+      },
+      "documentation":"<p>Describes a stale security group (a security group that contains stale rules).</p>"
+    },
+    "StaleSecurityGroupSet":{
+      "type":"list",
+      "member":{
+        "shape":"StaleSecurityGroup",
         "locationName":"item"
       }
     },
@@ -15828,7 +16151,7 @@
       "members":{
         "UserId":{
           "shape":"String",
-          "documentation":"<p>The ID of an AWS account.</p> <p>[EC2-Classic] Required when adding or removing rules that reference a security group in another AWS account.</p>",
+          "documentation":"<p>The ID of an AWS account. For a referenced security group in another VPC, the account ID of the referenced security group is returned.</p> <p>[EC2-Classic] Required when adding or removing rules that reference a security group in another AWS account.</p>",
           "locationName":"userId"
         },
         "GroupName":{
@@ -15860,6 +16183,13 @@
       "documentation":"<p>Describes a security group and AWS account ID pair. </p>"
     },
     "UserIdGroupPairList":{
+      "type":"list",
+      "member":{
+        "shape":"UserIdGroupPair",
+        "locationName":"item"
+      }
+    },
+    "UserIdGroupPairSet":{
       "type":"list",
       "member":{
         "shape":"UserIdGroupPair",
@@ -16433,7 +16763,7 @@
       "members":{
         "AccepterVpcInfo":{
           "shape":"VpcPeeringConnectionVpcInfo",
-          "documentation":"<p>Information about the peer VPC. CIDR block information is not returned when creating a VPC peering connection, or when describing a VPC peering connection that's in the <code>initiating-request</code> or <code>pending-acceptance</code> state.</p>",
+          "documentation":"<p>Information about the accepter VPC. CIDR block information is not returned when creating a VPC peering connection, or when describing a VPC peering connection that's in the <code>initiating-request</code> or <code>pending-acceptance</code> state.</p>",
           "locationName":"accepterVpcInfo"
         },
         "ExpirationTime":{

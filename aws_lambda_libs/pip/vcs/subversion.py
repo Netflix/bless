@@ -7,7 +7,7 @@ import re
 from pip._vendor.six.moves.urllib import parse as urllib_parse
 
 from pip.index import Link
-from pip.utils import rmtree, display_path, call_subprocess
+from pip.utils import rmtree, display_path
 from pip.utils.logging import indent_log
 from pip.vcs import vcs, VersionControl
 
@@ -32,8 +32,8 @@ class Subversion(VersionControl):
         """Returns (url, revision), where both are strings"""
         assert not location.rstrip('/').endswith(self.dirname), \
             'Bad directory: %s' % location
-        output = call_subprocess(
-            [self.cmd, 'info', location],
+        output = self.run_command(
+            ['info', location],
             show_stdout=False,
             extra_environ={'LANG': 'C'},
         )
@@ -66,17 +66,15 @@ class Subversion(VersionControl):
                 # Subversion doesn't like to check out over an existing
                 # directory --force fixes this, but was only added in svn 1.5
                 rmtree(location)
-            call_subprocess(
-                [self.cmd, 'export'] + rev_options + [url, location],
-                filter_stdout=self._filter, show_stdout=False)
+            self.run_command(
+                ['export'] + rev_options + [url, location],
+                show_stdout=False)
 
     def switch(self, dest, url, rev_options):
-        call_subprocess(
-            [self.cmd, 'switch'] + rev_options + [url, dest])
+        self.run_command(['switch'] + rev_options + [url, dest])
 
     def update(self, dest, rev_options):
-        call_subprocess(
-            [self.cmd, 'update'] + rev_options + [dest])
+        self.run_command(['update'] + rev_options + [dest])
 
     def obtain(self, dest):
         url, rev = self.get_url_rev()
@@ -92,8 +90,7 @@ class Subversion(VersionControl):
                 rev_display,
                 display_path(dest),
             )
-            call_subprocess(
-                [self.cmd, 'checkout', '-q'] + rev_options + [url, dest])
+            self.run_command(['checkout', '-q'] + rev_options + [url, dest])
 
     def get_location(self, dist, dependency_links):
         for url in dependency_links:
@@ -166,11 +163,16 @@ class Subversion(VersionControl):
     def _get_svn_url_rev(self, location):
         from pip.exceptions import InstallationError
 
-        with open(os.path.join(location, self.dirname, 'entries')) as f:
-            data = f.read()
-        if (data.startswith('8')
-                or data.startswith('9')
-                or data.startswith('10')):
+        entries_path = os.path.join(location, self.dirname, 'entries')
+        if os.path.exists(entries_path):
+            with open(entries_path) as f:
+                data = f.read()
+        else:  # subversion >= 1.7 does not have the 'entries' file
+            data = ''
+
+        if (data.startswith('8') or
+                data.startswith('9') or
+                data.startswith('10')):
             data = list(map(str.splitlines, data.split('\n\x0c\n')))
             del data[0][0]  # get rid of the '8'
             url = data[0][3]
@@ -184,8 +186,8 @@ class Subversion(VersionControl):
         else:
             try:
                 # subversion >= 1.7
-                xml = call_subprocess(
-                    [self.cmd, 'info', '--xml', location],
+                xml = self.run_command(
+                    ['info', '--xml', location],
                     show_stdout=False,
                 )
                 url = _svn_info_xml_url_re.search(xml).group(1)
@@ -202,66 +204,18 @@ class Subversion(VersionControl):
 
         return url, rev
 
-    def get_tag_revs(self, svn_tag_url):
-        stdout = call_subprocess(
-            [self.cmd, 'ls', '-v', svn_tag_url], show_stdout=False)
-        results = []
-        for line in stdout.splitlines():
-            parts = line.split()
-            rev = int(parts[0])
-            tag = parts[-1].strip('/')
-            results.append((tag, rev))
-        return results
-
-    def find_tag_match(self, rev, tag_revs):
-        best_match_rev = None
-        best_tag = None
-        for tag, tag_rev in tag_revs:
-            if (tag_rev > rev and
-                    (best_match_rev is None or best_match_rev > tag_rev)):
-                # FIXME: Is best_match > tag_rev really possible?
-                # or is it a sign something is wacky?
-                best_match_rev = tag_rev
-                best_tag = tag
-        return best_tag
-
-    def get_src_requirement(self, dist, location, find_tags=False):
+    def get_src_requirement(self, dist, location):
         repo = self.get_url(location)
         if repo is None:
             return None
-        parts = repo.split('/')
         # FIXME: why not project name?
         egg_project_name = dist.egg_name().split('-', 1)[0]
         rev = self.get_revision(location)
-        if parts[-2] in ('tags', 'tag'):
-            # It's a tag, perfect!
-            full_egg_name = '%s-%s' % (egg_project_name, parts[-1])
-        elif parts[-2] in ('branches', 'branch'):
-            # It's a branch :(
-            full_egg_name = '%s-%s-r%s' % (dist.egg_name(), parts[-1], rev)
-        elif parts[-1] == 'trunk':
-            # Trunk :-/
-            full_egg_name = '%s-dev_r%s' % (dist.egg_name(), rev)
-            if find_tags:
-                tag_url = '/'.join(parts[:-1]) + '/tags'
-                tag_revs = self.get_tag_revs(tag_url)
-                match = self.find_tag_match(rev, tag_revs)
-                if match:
-                    logger.info(
-                        'trunk checkout %s seems to be equivalent to tag %s',
-                        match,
-                    )
-                    repo = '%s/%s' % (tag_url, match)
-                    full_egg_name = '%s-%s' % (egg_project_name, match)
-        else:
-            # Don't know what it is
-            logger.warning(
-                'svn URL does not fit normal structure (tags/branches/trunk): '
-                '%s',
-                repo,
-            )
-            full_egg_name = '%s-dev_r%s' % (egg_project_name, rev)
-        return 'svn+%s@%s#egg=%s' % (repo, rev, full_egg_name)
+        return 'svn+%s@%s#egg=%s' % (repo, rev, egg_project_name)
+
+    def check_version(self, dest, rev_options):
+        """Always assume the versions don't match"""
+        return False
 
 
 def get_rev_options(url, rev):
