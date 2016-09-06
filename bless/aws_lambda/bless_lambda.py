@@ -40,7 +40,6 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     decrypt.
     :param entropy_check: For local testing, if set to false, it will skip checking entropy and
     won't try to fetch additional random from KMS
-    :param certificate_type: Type of certificate to be generated
     :param config_file: The config file to load the SSH CA private key from, and additional settings
     :return: the SSH Certificate that can be written to id_rsa-cert.pub or similar file.
     """
@@ -117,6 +116,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
             context.aws_request_id, request.bastion_user, request.bastion_user_ip, request.command,
             cert_builder.ssh_public_key.fingerprint, context.invoked_function_arn,
             time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
+        cert_type_string = 'user'
         cert_builder.set_critical_option_source_address(request.bastion_ip)
     elif certificate_type == SSHCertificateType.HOST:
         for remote_hostname in request.remote_hostnames:
@@ -124,6 +124,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
         key_id = 'request[{}] ssh_key:[{}]  ca:[{}] valid_to[{}]'.format(
             context.aws_request_id, cert_builder.ssh_public_key.fingerprint,
             context.invoked_function_arn, time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
+        cert_type_string = 'host'
     else:
         raise ValueError("Unknown certificate type")
 
@@ -141,8 +142,8 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
         bastion_ip = request.bastion_ip
 
     logger.info(
-        'Issued a cert to bastion_ip[{}] for the remote_username of [{}] with the key_id[{}] and '
+        'Issued a {} cert to bastion_ip[{}] for the remote_username of [{}] with the key_id[{}] and '
         'valid_from[{}])'.format(
-            bastion_ip, remote_name, key_id,
+            cert_type_string, bastion_ip, remote_name, key_id,
             time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_after))))
     return cert

@@ -9,7 +9,7 @@ from marshmallow import Schema, fields, post_load, ValidationError
 
 # man 8 useradd
 USERNAME_PATTERN = re.compile('[a-z_][a-z0-9_-]*[$]?\Z')
-HOSTNAME_PATTERN = re.compile('[a-z0-9_.-]+')
+HOSTNAME_PATTERN = re.compile('[a-z0-9.-]+')
 
 
 def validate_ip(ip):
@@ -79,7 +79,7 @@ class BlessUserRequest(BlessRequest):
     def __init__(self, bastion_ip, bastion_user, bastion_user_ip, command, public_key_to_sign,
                  remote_username):
         """
-        A BlessRequest must have the following key value pairs to be valid.
+        A BlessUserRequest must have the following key value pairs to be valid.
         :param bastion_ip: The source IP where the SSH connection will be initiated from.  This is
         enforced in the issued certificate.
         :param bastion_user: The user on the bastion, who is initiating the SSH request.
@@ -88,6 +88,7 @@ class BlessUserRequest(BlessRequest):
         :param public_key_to_sign: The id_rsa.pub that will be used in the SSH request.  This is
         enforced in the issued certificate.
         :param remote_username: The username on the remote server that will be used in the SSH
+        request.  This is enforced in the issued certificate.
         """
 
         self.bastion_ip = bastion_ip
@@ -101,7 +102,7 @@ class BlessUserRequest(BlessRequest):
 class BlessHostRequest(BlessRequest):
     def __init__(self, public_key_to_sign, remote_hostnames):
         """
-        A BlessRequest must have the following key value pairs to be valid.
+        A BlessHostRequest must have the following key value pairs to be valid.
         :param bastion_ip: The source IP where the SSH connection will be initiated from.  This is
         enforced in the issued certificate.
         :param public_key_to_sign: The id_rsa.pub that will be used in the SSH request.  This is
