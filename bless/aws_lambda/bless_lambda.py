@@ -11,7 +11,7 @@ import boto3
 import os
 from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION, ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
-    BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION, CERTIFICATE_TYPE_OPTION
+    BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION
 from bless.request.bless_request import BlessUserSchema, BlessHostSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
