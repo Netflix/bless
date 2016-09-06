@@ -19,15 +19,6 @@ from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
 from bless.ssh.certificates.ssh_certificate_builder_factory import get_ssh_certificate_builder
 
 
-def get_certificate_type(certificate_type_option):
-    if certificate_type_option == 'user':
-        return 1
-    elif certificate_type_option == 'host':
-        return 2
-    else:
-        raise ValueError('Invalid certificate type option: {}'.format(certificate_type_option))
-
-
 def lambda_handler(event, context=None, ca_private_key_password=None,
                    entropy_check=True,
                    config_file=os.path.join(os.path.dirname(__file__), 'bless_deploy.cfg')):
@@ -50,7 +41,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     config = BlessConfig(region,
                          config_file=config_file)
 
-    certificate_type = get_certificate_type(config.get(BLESS_OPTIONS_SECTION, CERTIFICATE_TYPE_OPTION))
+    certificate_type = config.get_certificate_type()
     logging_level = config.get(BLESS_OPTIONS_SECTION, LOGGING_LEVEL_OPTION)
     numeric_level = getattr(logging, logging_level.upper(), None)
     if not isinstance(numeric_level, int):

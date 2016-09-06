@@ -61,3 +61,12 @@ class BlessConfig(ConfigParser.RawConfigParser):
         :return: A Base64 encoded KMS CiphertextBlob.
         """
         return self.get(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX)
+
+    def get_certificate_type(self):
+        certificate_type_option = self.get(BLESS_OPTIONS_SECTION, CERTIFICATE_TYPE_OPTION)
+        if certificate_type_option == 'user':
+            return 1
+        elif certificate_type_option == 'host':
+            return 2
+        else:
+            raise ValueError('Invalid certificate type option: {}'.format(certificate_type_option))
