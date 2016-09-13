@@ -35,7 +35,7 @@ Lyft BLESS can be deployed any time during business hours (M-F 9 AM - 5 PM)
 
 ## Reverting a BLESS deploy
 
-TODO
+The lambda is versioned and each version has an alias (e.g. PROD-1-1). If you deploy the lambda, you should check that the new lambda version works and is compatible with the latest version of the blessclient. When you know it is working, make a PR to blessclient to update the alias there. To rollback to a previous version, create a PR in blessclient to revert to a previous alias.
 
 # Internal dependencies
 
@@ -43,7 +43,13 @@ None
 
 # 3rd party dependencies
 
-TODO
+AWS:
+
+* KMS
+* IAM
+* Lambda
+
+Any outages in these products should be escalated to our AWS representative.
 
 # Datastore dependencies
 
