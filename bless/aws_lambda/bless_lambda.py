@@ -11,7 +11,8 @@ import boto3
 import os
 import kmsauth
 from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
-    CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION, ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
+    CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
+    ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
     BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION, KMSAUTH_SECTION, \
     KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_SERVICE_ID_OPTION
 
@@ -52,8 +53,10 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     logger = logging.getLogger()
     logger.setLevel(numeric_level)
 
-    certificate_validity_window_seconds = config.getint(BLESS_OPTIONS_SECTION,
-                                                        CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION)
+    certificate_validity_before_seconds = config.getint(BLESS_OPTIONS_SECTION,
+                                            CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION)
+    certificate_validity_after_seconds = config.getint(BLESS_OPTIONS_SECTION,
+                                            CERTIFICATE_VALIDITY_AFTER_SEC_OPTION)
     entropy_minimum_bits = config.getint(BLESS_OPTIONS_SECTION, ENTROPY_MINIMUM_BITS_OPTION)
     random_seed_bytes = config.getint(BLESS_OPTIONS_SECTION, RANDOM_SEED_BYTES_OPTION)
     ca_private_key_file = config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
@@ -92,8 +95,8 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
 
     # cert values determined only by lambda and its configs
     current_time = int(time.time())
-    valid_before = current_time + certificate_validity_window_seconds
-    valid_after = current_time - certificate_validity_window_seconds
+    valid_before = current_time + certificate_validity_after_seconds
+    valid_after = current_time - certificate_validity_before_seconds
 
     # Authenticate the user with KMS, if key is setup
     if config.get(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION):

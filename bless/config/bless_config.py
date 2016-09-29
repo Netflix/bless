@@ -6,7 +6,8 @@
 import ConfigParser
 
 BLESS_OPTIONS_SECTION = 'Bless Options'
-CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION = 'certificate_validity_seconds'
+CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION = 'certificate_validity_before_seconds'
+CERTIFICATE_VALIDITY_AFTER_SEC_OPTION = 'certificate_validity_after_seconds'
 CERTIFICATE_VALIDITY_SEC_DEFAULT = 60 * 2
 
 ENTROPY_MINIMUM_BITS_OPTION = 'entropy_minimum_bits'
@@ -48,7 +49,8 @@ class BlessConfig(ConfigParser.RawConfigParser):
         :param config_file: Path to the connfig file.
         """
         self.aws_region = aws_region
-        defaults = {CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION: CERTIFICATE_VALIDITY_SEC_DEFAULT,
+        defaults = {CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION: CERTIFICATE_VALIDITY_SEC_DEFAULT,
+                    CERTIFICATE_VALIDITY_AFTER_SEC_OPTION: CERTIFICATE_VALIDITY_SEC_DEFAULT,
                     ENTROPY_MINIMUM_BITS_OPTION: ENTROPY_MINIMUM_BITS_DEFAULT,
                     RANDOM_SEED_BYTES_OPTION: RANDOM_SEED_BYTES_DEFAULT,
                     LOGGING_LEVEL_OPTION: LOGGING_LEVEL_DEFAULT,
