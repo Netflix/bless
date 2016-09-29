@@ -7,7 +7,7 @@ import ConfigParser
 
 BLESS_OPTIONS_SECTION = 'Bless Options'
 CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION = 'certificate_validity_before_seconds'
-CERTIFICATE_VALIDITY_AFTER_SEC_OPTION = 'certificate_validity_before_seconds'
+CERTIFICATE_VALIDITY_AFTER_SEC_OPTION = 'certificate_validity_after_seconds'
 CERTIFICATE_VALIDITY_SEC_DEFAULT = 60 * 2
 
 ENTROPY_MINIMUM_BITS_OPTION = 'entropy_minimum_bits'
