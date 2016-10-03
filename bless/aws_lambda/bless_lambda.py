@@ -95,8 +95,14 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
 
     # cert values determined only by lambda and its configs
     current_time = int(time.time())
-    valid_before = current_time + certificate_validity_after_seconds
-    valid_after = current_time - certificate_validity_before_seconds
+    if request.test:
+        # This is a test call, the lambda will issue an invalid
+        # certificate where valid_before < valid_after
+        valid_before = current_time
+        valid_after = current_time + 1
+    else:
+        valid_before = current_time + certificate_validity_after_seconds
+        valid_after = current_time - certificate_validity_before_seconds
 
     # Authenticate the user with KMS, if key is setup
     if config.get(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION):
