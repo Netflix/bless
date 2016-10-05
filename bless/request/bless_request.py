@@ -34,7 +34,6 @@ class BlessSchema(Schema):
     public_key_to_sign = fields.Str()
     remote_username = fields.Str(validate=validate_user)
     kmsauth_token = fields.Str()
-    test = fields.Bool()
 
     @post_load
     def make_bless_request(self, data):
@@ -43,7 +42,7 @@ class BlessSchema(Schema):
 
 class BlessRequest:
     def __init__(self, bastion_ips, bastion_user, bastion_user_ip, command, public_key_to_sign,
-                 remote_username, kmsauth_token=None, test=False):
+                 remote_username, kmsauth_token=None):
         """
         A BlessRequest must have the following key value pairs to be valid.
         :param bastion_ips: The source IPs where the SSH connection will be initiated from.  This is
@@ -56,8 +55,6 @@ class BlessRequest:
         :param remote_username: The username on the remote server that will be used in the SSH
         request.  This is enforced in the issued certificate.
         :param kmsauth_token: An optional kms auth token to authenticate the user
-        :param test: Run the lambda in test mode, resulting in an invalid certificate
-        (valid before < valid after)
         """
         self.bastion_ips = bastion_ips
         self.bastion_user = bastion_user
@@ -66,7 +63,6 @@ class BlessRequest:
         self.public_key_to_sign = public_key_to_sign
         self.remote_username = remote_username
         self.kmsauth_token = kmsauth_token
-        self.test = test
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__

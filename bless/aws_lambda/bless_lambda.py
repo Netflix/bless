@@ -14,7 +14,7 @@ from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
     ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
     BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION, KMSAUTH_SECTION, \
-    KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_SERVICE_ID_OPTION
+    KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_SERVICE_ID_OPTION, TEST_USER_OPTION
 
 from bless.request.bless_request import BlessSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
@@ -95,7 +95,9 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
 
     # cert values determined only by lambda and its configs
     current_time = int(time.time())
-    if request.test:
+    test_user = config.get(BLESS_OPTIONS_SECTION, TEST_USER_OPTION)
+    if (test_user and request.bastion_user == test_user or
+            request.remote_username == test_user):
         # This is a test call, the lambda will issue an invalid
         # certificate where valid_before < valid_after
         valid_before = current_time
