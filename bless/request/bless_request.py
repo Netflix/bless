@@ -54,7 +54,7 @@ class BlessRequest:
         enforced in the issued certificate.
         :param remote_username: The username on the remote server that will be used in the SSH
         request.  This is enforced in the issued certificate.
-        :param kmsauth_token: And optional kms auth token to authenticate the user
+        :param kmsauth_token: An optional kms auth token to authenticate the user
         """
         self.bastion_ips = bastion_ips
         self.bastion_user = bastion_user
