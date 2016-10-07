@@ -62,6 +62,11 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     ca_private_key_file = config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
     password_ciphertext_b64 = config.getpassword()
 
+    # Process cert request
+    schema = BlessSchema(strict=True)
+    request = schema.load(event).data
+    logger.info('Bless lambda invoked with request: {}'.format(request))
+
     # read the private key .pem
     with open(os.path.join(os.path.dirname(__file__), ca_private_key_file), 'r') as f:
         ca_private_key = f.read()
@@ -88,10 +93,6 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                 random_seed = response['Plaintext']
                 with open('/dev/urandom', 'w') as urandom:
                     urandom.write(random_seed)
-
-    # Process cert request
-    schema = BlessSchema(strict=True)
-    request = schema.load(event).data
 
     # cert values determined only by lambda and its configs
     current_time = int(time.time())
