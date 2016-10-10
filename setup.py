@@ -1,6 +1,6 @@
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__)))
 
@@ -16,7 +16,7 @@ setup(
     url=about["__uri__"],
     description=about["__summary__"],
     license=about["__license__"],
-    packages=[],
+    packages=find_packages(exclude=["test*"]),
     install_requires=[
         'boto3==1.3.1',
         'botocore==1.4.37',
