@@ -110,17 +110,23 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     # Authenticate the user with KMS, if key is setup
     if config.get(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION):
         if request.kmsauth_token:
-            validator = kmsauth.KMSTokenValidator(
-                None,
-                config.getkmsauthkeyids(),
-                config.get(KMSAUTH_SECTION, KMSAUTH_SERVICE_ID_OPTION),
-                region
-            )
-            # decrypt_token will raise a TokenValidationError if token doesn't match
-            validator.decrypt_token(
-                "2/user/{}".format(request.remote_username),
-                request.kmsauth_token
-            )
+            try:
+                validator = kmsauth.KMSTokenValidator(
+                    None,
+                    config.getkmsauthkeyids(),
+                    config.get(KMSAUTH_SECTION, KMSAUTH_SERVICE_ID_OPTION),
+                    region
+                )
+                # decrypt_token will raise a TokenValidationError if token doesn't match
+                validator.decrypt_token(
+                    "2/user/{}".format(request.remote_username),
+                    request.kmsauth_token
+                )
+            except TokenValidationError as e:
+                return {
+                    'errorType': 'KMSAuthValidationError',
+                    'errorMessage': str(e)
+                }
         else:
             raise ValueError('Invalid request, missing kmsauth token')
 
