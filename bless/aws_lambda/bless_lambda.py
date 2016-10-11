@@ -65,7 +65,11 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     # Process cert request
     schema = BlessSchema(strict=True)
     request = schema.load(event).data
-    logger.info('Bless lambda invoked with request: {}'.format(request))
+    logger.info('Bless lambda invoked by [user: {0}, bastion_ips:{1}, public_key: {2}, kmsauth_token:{3}]'.format(
+        request.bastion_user,
+        request.bastion_user_ip,
+        request.public_key_to_sign,
+        request.kmsauth_token))
 
     # read the private key .pem
     with open(os.path.join(os.path.dirname(__file__), ca_private_key_file), 'r') as f:
