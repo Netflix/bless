@@ -59,12 +59,12 @@ def test_basic_local_missing_kmsauth_request():
                                   'bless-test-kmsauth.cfg'))
 
 def test_invalid_kmsauth_request():
-    with pytest.raises(TokenValidationError):
-        cert = lambda_handler(VALID_TEST_REQUEST_KMSAUTH, context=Context,
-                              ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
-                              entropy_check=False,
-                              config_file=os.path.join(os.path.dirname(__file__),
-                                  'bless-test-kmsauth.cfg'))
+    output = lambda_handler(VALID_TEST_REQUEST_KMSAUTH, context=Context,
+                          ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                          entropy_check=False,
+                          config_file=os.path.join(os.path.dirname(__file__),
+                              'bless-test-kmsauth.cfg'))
+    assert output['errorType'] == 'KMSAuthValidationError'
 
 def test_local_request_key_not_found():
     with pytest.raises(IOError):
