@@ -10,6 +10,7 @@ import time
 import boto3
 import os
 from kmsauth import KMSTokenValidator, TokenValidationError
+from botocore.exceptions import ClientError
 from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
     ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
@@ -78,9 +79,15 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     # decrypt ca private key password
     if ca_private_key_password is None:
         kms_client = boto3.client('kms', region_name=region)
-        ca_password = kms_client.decrypt(
-            CiphertextBlob=base64.b64decode(password_ciphertext_b64))
-        ca_private_key_password = ca_password['Plaintext']
+        try:
+            ca_password = kms_client.decrypt(
+                CiphertextBlob=base64.b64decode(password_ciphertext_b64))
+            ca_private_key_password = ca_password['Plaintext']
+        except ClientError as e:
+            return {
+                'errorType': 'ClientError',
+                'errorMessage': str(e)
+            }
 
     # if running as a Lambda, we can check the entropy pool and seed it with KMS if desired
     if entropy_check:
