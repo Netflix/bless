@@ -11,9 +11,10 @@ from marshmallow import Schema, fields, post_load, ValidationError
 USERNAME_PATTERN = re.compile('[a-z_][a-z0-9_-]*[$]?\Z')
 
 
-def validate_ip(ip):
+def validate_ip(ips):
     try:
-        ipaddress.ip_address(ip)
+        for ip in ips.split(','):
+            ipaddress.ip_network(ip)
     except ValueError:
         raise ValidationError('Invalid IP address.')
 

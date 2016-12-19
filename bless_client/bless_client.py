@@ -19,7 +19,9 @@ Usage:
     request.  This is enforced in the issued certificate.
 
     bastion_ip: The source IP where the SSH connection will be initiated from.  This is
-    enforced in the issued certificate.
+    enforced in the issued certificate. Per man SSH-KEYGEN(1):
+        "The address_list is a comma- separated list of one or more address/netmask pairs
+         in CIDR format"
 
     bastion_command: Text information about the SSH request of the bastion_user.
 
