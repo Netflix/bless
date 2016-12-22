@@ -9,12 +9,17 @@ matrix:
     - python: "2.7"
 
 install:
+  - pip install coveralls
   - make develop
 
 before_script:
 
 script:
-  - make test
+  - make lint
+  - make coverage
+
+after_success:
+  - coveralls
 
 notifications:
   email:
