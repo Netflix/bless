@@ -1,6 +1,6 @@
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__)))
 
@@ -16,7 +16,7 @@ setup(
     url=about["__uri__"],
     description=about["__summary__"],
     license=about["__license__"],
-    packages=[],
+    packages=find_packages(exclude=["test*"]),
     install_requires=[
         'boto3==1.3.1',
         'botocore==1.4.37',
@@ -32,7 +32,8 @@ setup(
         'pyasn1==0.1.9',
         'pycparser==2.14',
         'python-dateutil==2.5.3',
-        'six==1.10.0'
+        'six==1.10.0',
+        'kmsauth==0.1.7'
     ],
     extras_require={
         'tests': [
