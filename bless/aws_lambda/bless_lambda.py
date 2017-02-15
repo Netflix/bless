@@ -11,7 +11,8 @@ import boto3
 import os
 from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION, ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
-    BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION
+    BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION, EXTENSIONS_OPTION
+import ConfigParser
 from bless.request.bless_request import BlessSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
@@ -56,6 +57,11 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     ca_private_key_file = config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
     password_ciphertext_b64 = config.getpassword()
 
+    try:
+        extensions = config.get(BLESS_OPTIONS_SECTION, EXTENSIONS_OPTION)
+    except ConfigParser.NoOptionError:
+        extensions = None
+
     # read the private key .pem
     with open(os.path.join(os.path.dirname(__file__), ca_private_key_file), 'r') as f:
         ca_private_key = f.read()
@@ -99,6 +105,11 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     cert_builder.add_valid_principal(request.remote_username)
     cert_builder.set_valid_before(valid_before)
     cert_builder.set_valid_after(valid_after)
+
+    if extensions is not None:
+        cert_builder.clear_extensions()
+        for e in extensions.split():
+            cert_builder.add_extension(e)
 
     # cert_builder is needed to obtain the SSH public key's fingerprint
     key_id = 'request[{}] for[{}] from[{}] command[{}] ssh_key:[{}]  ca:[{}] valid_to[{}]'.format(

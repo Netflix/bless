@@ -18,6 +18,9 @@ RANDOM_SEED_BYTES_DEFAULT = 256
 LOGGING_LEVEL_OPTION = 'logging_level'
 LOGGING_LEVEL_DEFAULT = 'INFO'
 
+EXTENSIONS_OPTION = 'extensions'
+# Default for Extensions is None
+
 BLESS_CA_SECTION = 'Bless CA'
 CA_PRIVATE_KEY_FILE_OPTION = 'ca_private_key_file'
 KMS_KEY_ID_OPTION = 'kms_key_id'
