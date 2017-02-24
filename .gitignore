@@ -2,7 +2,7 @@
 *.pyc
 *.cache/
 .idea/
-bless.egg-info/
+BLESS.egg-info/
 htmlcov/
 libs/
 publish/
