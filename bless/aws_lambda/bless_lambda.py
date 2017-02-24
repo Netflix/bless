@@ -162,7 +162,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
         context.aws_request_id, request.bastion_user, request.bastion_user_ip, request.command,
         cert_builder.ssh_public_key.fingerprint, context.invoked_function_arn,
         time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
-    cert_builder.set_critical_option_source_address('{},{}'.format(request.bastion_user_ip, request.bastion_ips))
+    cert_builder.set_critical_option_source_addresses('{}'.format(request.bastion_ips))
     cert_builder.set_key_id(key_id)
     cert = cert_builder.get_cert_file()
 

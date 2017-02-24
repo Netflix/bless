@@ -5,7 +5,7 @@ A sample client to invoke the BLESS Lambda function and save the signed SSH Cert
 
 Usage:
   bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_username
-  bastion_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>
+  bastion_ips bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>
 
     region: AWS region where your lambda is deployed.
 
@@ -18,7 +18,7 @@ Usage:
     remote_username: The username on the remote server that will be used in the SSH
     request.  This is enforced in the issued certificate.
 
-    bastion_ip: The source IP where the SSH connection will be initiated from.  This is
+    bastion_ips: The source IP(s) where the SSH connection will be initiated from.  This is
     enforced in the issued certificate.
 
     bastion_command: Text information about the SSH request of the bastion_user.
@@ -42,18 +42,18 @@ def main(argv):
     if len(argv) < 9 or len(argv) > 10:
         print (
             'Usage: bless_client.py region lambda_function_name bastion_user bastion_user_ip '
-            'remote_username bastion_ip bastion_command <id_rsa.pub to sign> '
+            'remote_username bastion_ips bastion_command <id_rsa.pub to sign> '
             '<output id_rsa-cert.pub> [kmsauth token]')
         return -1
 
-    region, lambda_function_name, bastion_user, bastion_user_ip, remote_username, bastion_ip, \
+    region, lambda_function_name, bastion_user, bastion_user_ip, remote_username, bastion_ips, \
     bastion_command, public_key_filename, certificate_filename = argv
 
     with open(public_key_filename, 'r') as f:
         public_key = f.read()
 
     payload = {'bastion_user': bastion_user, 'bastion_user_ip': bastion_user_ip,
-               'remote_username': remote_username, 'bastion_ips': bastion_ip,
+               'remote_username': remote_username, 'bastion_ips': bastion_ips,
                'command': bastion_command, 'public_key_to_sign': public_key}
 
     if len(argv) == 10:

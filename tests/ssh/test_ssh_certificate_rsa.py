@@ -112,7 +112,7 @@ def test_bogus_critical_options():
         cert_builder.set_critical_option_force_command('')
 
     with pytest.raises(ValueError):
-        cert_builder.set_critical_option_source_address('')
+        cert_builder.set_critical_option_source_addresses('')
 
 
 def test_rsa_user_cert_minimal():
@@ -202,7 +202,7 @@ def test_rsa_user_cert_critical_opt_source_address():
         nonce=extract_nonce_from_cert(RSA_USER_CERT_FORCE_COMMAND_AND_SOURCE_ADDRESS))
     cert_builder.set_key_id(RSA_USER_CERT_FORCE_COMMAND_AND_SOURCE_ADDRESS_KEY_ID)
     cert_builder.set_critical_option_force_command('/bin/ls')
-    cert_builder.set_critical_option_source_address('192.168.1.0/24')
+    cert_builder.set_critical_option_source_addresses('192.168.1.0/24')
 
     cert = cert_builder.get_cert_file()
 

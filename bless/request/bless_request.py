@@ -3,12 +3,14 @@
     :copyright: (c) 2016 by Netflix Inc., see AUTHORS for more
     :license: Apache, see LICENSE for more details.
 """
-import ipaddress
 import re
-from marshmallow import Schema, fields, post_load, ValidationError
+
+import ipaddress
+from marshmallow import Schema, fields, post_load, ValidationError, validates_schema
 
 # man 8 useradd
 USERNAME_PATTERN = re.compile('[a-z_][a-z0-9_-]*[$]?\Z')
+VALID_SSH_RSA_PUBLIC_KEY_HEADER = "ssh-rsa AAAAB3NzaC1yc2"
 
 
 def validate_ips(ips):
@@ -26,14 +28,28 @@ def validate_user(user):
         raise ValidationError('Username contains invalid characters')
 
 
+def validate_ssh_public_key(public_key):
+    if public_key.startswith(VALID_SSH_RSA_PUBLIC_KEY_HEADER):
+        pass
+    # todo other key types
+    else:
+        raise ValidationError('Invalid SSH Public Key.')
+
+
 class BlessSchema(Schema):
-    bastion_ips = fields.Str(validate=validate_ips)
-    bastion_user = fields.Str(validate=validate_user)
-    bastion_user_ip = fields.Str(validate=validate_ips)
-    command = fields.Str()
-    public_key_to_sign = fields.Str()
-    remote_username = fields.Str(validate=validate_user)
-    kmsauth_token = fields.Str()
+    bastion_ips = fields.Str(validate=validate_ips, required=True)
+    bastion_user = fields.Str(validate=validate_user, required=True)
+    bastion_user_ip = fields.Str(validate=validate_ips, required=True)
+    command = fields.Str(required=True)
+    public_key_to_sign = fields.Str(validate=validate_ssh_public_key, required=True)
+    remote_username = fields.Str(validate=validate_user, required=True)
+    kmsauth_token = fields.Str(required=False)
+
+    @validates_schema(pass_original=True)
+    def check_unknown_fields(self, data, original_data):
+        unknown = set(original_data) - set(self.fields)
+        if unknown:
+            raise ValidationError('Unknown field', unknown)
 
     @post_load
     def make_bless_request(self, data):

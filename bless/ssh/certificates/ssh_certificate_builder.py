@@ -141,7 +141,7 @@ class SSHCertificateBuilder(object):
         else:
             raise ValueError("Provide a non-null string")
 
-    def set_critical_option_source_address(self, address):
+    def set_critical_option_source_addresses(self, address):
         """
         Sets which IP address(es) this certificate can be used from for authentication.  Addresses
         should be comma-separated and can be individual IPs or CIDR format (nn.nn.nn.nn/nn or
