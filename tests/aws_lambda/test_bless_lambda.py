@@ -153,8 +153,8 @@ def test_local_request_missing_field():
 
 
 def test_local_request_with_test_user():
-    with pytest.raises(ValueError):
-        lambda_handler(VALID_TEST_REQUEST, context=Context,
-                       ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
-                       entropy_check=False,
-                       config_file=os.path.join(os.path.dirname(__file__), 'bless-test-with-test-user.cfg'))
+    cert = lambda_handler(VALID_TEST_REQUEST, context=Context,
+                          ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                          entropy_check=False,
+                          config_file=os.path.join(os.path.dirname(__file__), 'bless-test-with-test-user.cfg'))
+    assert cert.startswith('ssh-rsa-cert-v01@openssh.com ')
