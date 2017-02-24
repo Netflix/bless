@@ -122,9 +122,11 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
         # certificate where valid_before < valid_after
         valid_before = current_time
         valid_after = current_time + 1
+        bypass_time_validity_check = True
     else:
         valid_before = current_time + certificate_validity_after_seconds
         valid_after = current_time - certificate_validity_before_seconds
+        bypass_time_validity_check = False
 
     # Authenticate the user with KMS, if key is setup
     if config.get(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION):
@@ -164,7 +166,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
         time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
     cert_builder.set_critical_option_source_address('{},{}'.format(request.bastion_user_ip, request.bastion_ips))
     cert_builder.set_key_id(key_id)
-    cert = cert_builder.get_cert_file()
+    cert = cert_builder.get_cert_file(bypass_time_validity_check)
 
     logger.info(
         'Issued a cert to bastion_ips[{}] for the remote_username of [{}] with the key_id[{}] and '
