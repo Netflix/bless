@@ -11,7 +11,7 @@ __summary__ = (
     "sign SSH public keys.")
 __uri__ = "https://github.com/Netflix/bless"
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
 __author__ = "The BLESS developers"
 __email__ = "security@netflix.com"
