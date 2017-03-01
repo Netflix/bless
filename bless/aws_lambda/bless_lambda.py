@@ -9,9 +9,14 @@ import time
 
 import boto3
 import os
+from kmsauth import KMSTokenValidator, TokenValidationError
+from botocore.exceptions import ClientError
 from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
-    CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION, ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
-    BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION
+    CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
+    ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
+    BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION, KMSAUTH_SECTION, \
+    KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_SERVICE_ID_OPTION, TEST_USER_OPTION
+
 from bless.request.bless_request import BlessSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
@@ -49,12 +54,23 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     logger = logging.getLogger()
     logger.setLevel(numeric_level)
 
-    certificate_validity_window_seconds = config.getint(BLESS_OPTIONS_SECTION,
-                                                        CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION)
+    certificate_validity_before_seconds = config.getint(BLESS_OPTIONS_SECTION,
+                                            CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION)
+    certificate_validity_after_seconds = config.getint(BLESS_OPTIONS_SECTION,
+                                            CERTIFICATE_VALIDITY_AFTER_SEC_OPTION)
     entropy_minimum_bits = config.getint(BLESS_OPTIONS_SECTION, ENTROPY_MINIMUM_BITS_OPTION)
     random_seed_bytes = config.getint(BLESS_OPTIONS_SECTION, RANDOM_SEED_BYTES_OPTION)
     ca_private_key_file = config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
     password_ciphertext_b64 = config.getpassword()
+
+    # Process cert request
+    schema = BlessSchema(strict=True)
+    request = schema.load(event).data
+    logger.info('Bless lambda invoked by [user: {0}, bastion_ips:{1}, public_key: {2}, kmsauth_token:{3}]'.format(
+        request.bastion_user,
+        request.bastion_user_ip,
+        request.public_key_to_sign,
+        request.kmsauth_token))
 
     # read the private key .pem
     with open(os.path.join(os.path.dirname(__file__), ca_private_key_file), 'r') as f:
@@ -63,9 +79,15 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     # decrypt ca private key password
     if ca_private_key_password is None:
         kms_client = boto3.client('kms', region_name=region)
-        ca_password = kms_client.decrypt(
-            CiphertextBlob=base64.b64decode(password_ciphertext_b64))
-        ca_private_key_password = ca_password['Plaintext']
+        try:
+            ca_password = kms_client.decrypt(
+                CiphertextBlob=base64.b64decode(password_ciphertext_b64))
+            ca_private_key_password = ca_password['Plaintext']
+        except ClientError as e:
+            return {
+                'errorType': 'ClientError',
+                'errorMessage': str(e)
+            }
 
     # if running as a Lambda, we can check the entropy pool and seed it with KMS if desired
     if entropy_check:
@@ -83,14 +105,41 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                 with open('/dev/urandom', 'w') as urandom:
                     urandom.write(random_seed)
 
-    # Process cert request
-    schema = BlessSchema(strict=True)
-    request = schema.load(event).data
-
     # cert values determined only by lambda and its configs
     current_time = int(time.time())
-    valid_before = current_time + certificate_validity_window_seconds
-    valid_after = current_time - certificate_validity_window_seconds
+    test_user = config.get(BLESS_OPTIONS_SECTION, TEST_USER_OPTION)
+    if (test_user and (request.bastion_user == test_user or
+            request.remote_username == test_user)):
+        # This is a test call, the lambda will issue an invalid
+        # certificate where valid_before < valid_after
+        valid_before = current_time
+        valid_after = current_time + 1
+    else:
+        valid_before = current_time + certificate_validity_after_seconds
+        valid_after = current_time - certificate_validity_before_seconds
+
+    # Authenticate the user with KMS, if key is setup
+    if config.get(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION):
+        if request.kmsauth_token:
+            try:
+                validator = KMSTokenValidator(
+                    None,
+                    config.getkmsauthkeyids(),
+                    config.get(KMSAUTH_SECTION, KMSAUTH_SERVICE_ID_OPTION),
+                    region
+                )
+                # decrypt_token will raise a TokenValidationError if token doesn't match
+                validator.decrypt_token(
+                    "2/user/{}".format(request.remote_username),
+                    request.kmsauth_token
+                )
+            except TokenValidationError as e:
+                return {
+                    'errorType': 'KMSAuthValidationError',
+                    'errorMessage': str(e)
+                }
+        else:
+            raise ValueError('Invalid request, missing kmsauth token')
 
     # Build the cert
     ca = get_ssh_certificate_authority(ca_private_key, ca_private_key_password)
@@ -105,13 +154,13 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
         context.aws_request_id, request.bastion_user, request.bastion_user_ip, request.command,
         cert_builder.ssh_public_key.fingerprint, context.invoked_function_arn,
         time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
-    cert_builder.set_critical_option_source_address(request.bastion_ip)
+    cert_builder.set_critical_option_source_address('{},{}'.format(request.bastion_user_ip, request.bastion_ips))
     cert_builder.set_key_id(key_id)
     cert = cert_builder.get_cert_file()
 
     logger.info(
-        'Issued a cert to bastion_ip[{}] for the remote_username of [{}] with the key_id[{}] and '
+        'Issued a cert to bastion_ips[{}] for the remote_username of [{}] with the key_id[{}] and '
         'valid_from[{}])'.format(
-            request.bastion_ip, request.remote_username, key_id,
+            request.bastion_ips, request.remote_username, key_id,
             time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_after))))
     return cert
