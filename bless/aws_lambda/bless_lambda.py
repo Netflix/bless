@@ -12,7 +12,7 @@ import os
 from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION, ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
     BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION
-from bless.request.bless_request import BlessSchema
+from bless.request.bless_request import BlessUserSchema, BlessHostSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
 from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
@@ -20,7 +20,7 @@ from bless.ssh.certificates.ssh_certificate_builder_factory import get_ssh_certi
 
 
 def lambda_handler(event, context=None, ca_private_key_password=None,
-                   entropy_check=True,
+                   entropy_check=True, certificate_type=SSHCertificateType.USER,
                    config_file=os.path.join(os.path.dirname(__file__), 'bless_deploy.cfg')):
     """
     This is the function that will be called when the lambda function starts.
@@ -31,6 +31,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     decrypt.
     :param entropy_check: For local testing, if set to false, it will skip checking entropy and
     won't try to fetch additional random from KMS
+    :param certificate_type: Type of certificate to be generated
     :param config_file: The config file to load the SSH CA private key from, and additional settings
     :return: the SSH Certificate that can be written to id_rsa-cert.pub or similar file.
     """
@@ -84,7 +85,10 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                     urandom.write(random_seed)
 
     # Process cert request
-    schema = BlessSchema(strict=True)
+    if certificate_type == SSHCertificateType.HOST:
+        schema = BlessHostSchema(strict=True)
+    else:
+        schema = BlessUserSchema(strict=True)
     request = schema.load(event).data
 
     # cert values determined only by lambda and its configs
@@ -94,9 +98,15 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
 
     # Build the cert
     ca = get_ssh_certificate_authority(ca_private_key, ca_private_key_password)
-    cert_builder = get_ssh_certificate_builder(ca, SSHCertificateType.USER,
+    cert_builder = get_ssh_certificate_builder(ca, certificate_type,
                                                request.public_key_to_sign)
-    cert_builder.add_valid_principal(request.remote_username)
+    if certificate_type == SSHCertificateType.USER:
+        cert_builder.add_valid_principal(request.remote_username)
+    elif certificate_type == SSHCertificateType.HOST:
+        for remote_hostname in request.remote_hostnames:
+            cert_builder.add_valid_principal(remote_hostname)
+    else:
+        raise ValueError("Unknown certificate type")
     cert_builder.set_valid_before(valid_before)
     cert_builder.set_valid_after(valid_after)
 
@@ -109,9 +119,13 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     cert_builder.set_key_id(key_id)
     cert = cert_builder.get_cert_file()
 
+    if certificate_type == SSHCertificateType.HOST:
+        remote_name = ', '.join(request.remote_hostnames)
+    else:
+        remote_name = request.remote_username
     logger.info(
         'Issued a cert to bastion_ip[{}] for the remote_username of [{}] with the key_id[{}] and '
         'valid_from[{}])'.format(
-            request.bastion_ip, request.remote_username, key_id,
+            request.bastion_ip, remote_name, key_id,
             time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_after))))
     return cert
