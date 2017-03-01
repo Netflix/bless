@@ -141,7 +141,7 @@ class SSHCertificateBuilder(object):
         else:
             raise ValueError("Provide a non-null string")
 
-    def set_critical_option_source_address(self, address):
+    def set_critical_option_source_addresses(self, address):
         """
         Sets which IP address(es) this certificate can be used from for authentication.  Addresses
         should be comma-separated and can be individual IPs or CIDR format (nn.nn.nn.nn/nn or
@@ -195,7 +195,7 @@ class SSHCertificateBuilder(object):
 
         self.extensions.add(extension)
 
-    def get_cert_file(self):
+    def get_cert_file(self, bypass_time_validity_check=False):
         """
         Generate the SSH Certificate that can be written to id_rsa-cert.pub or similar file.
 
@@ -206,7 +206,8 @@ class SSHCertificateBuilder(object):
         """
         file_contents = (
             "{} {} {}"
-        ).format(self.cert_key_type, base64.b64encode(self._sign_cert()),
+        ).format(self.cert_key_type,
+                 base64.b64encode(self._sign_cert(bypass_time_validity_check)),
                  self.public_key_comment)
         return file_contents
 
@@ -238,11 +239,12 @@ class SSHCertificateBuilder(object):
         if self.valid_after >= self.valid_before:
             raise ValueError("Impossible validity period")
 
-    def _sign_cert(self):
+    def _sign_cert(self, bypass_time_validity_check=False):
         if self.signed_cert is None:
             # build cert body
             self._initialize_unset_attributes()
-            self._validate_cert_properties()
+            if not bypass_time_validity_check:
+                self._validate_cert_properties()
             body_bytes = self._serialize_certificate_body()
 
             # sign the body

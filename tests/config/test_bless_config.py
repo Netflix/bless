@@ -3,7 +3,8 @@ import os
 import pytest
 
 from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
-    CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION, ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
+    CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
+    ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
     CERTIFICATE_VALIDITY_SEC_DEFAULT, ENTROPY_MINIMUM_BITS_DEFAULT, RANDOM_SEED_BYTES_DEFAULT, \
     LOGGING_LEVEL_DEFAULT, LOGGING_LEVEL_OPTION
 
@@ -38,7 +39,9 @@ def test_configs(config, region, expected_cert_valid, expected_entropy_min, expe
                  expected_log_level, expected_password):
     config = BlessConfig(region, config_file=config)
     assert expected_cert_valid == config.getint(BLESS_OPTIONS_SECTION,
-                                                CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION)
+                                                CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION)
+    assert expected_cert_valid == config.getint(BLESS_OPTIONS_SECTION,
+                                                CERTIFICATE_VALIDITY_AFTER_SEC_OPTION)
 
     assert expected_entropy_min == config.getint(BLESS_OPTIONS_SECTION,
                                                  ENTROPY_MINIMUM_BITS_OPTION)
