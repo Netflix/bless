@@ -1,0 +1,5 @@
+[report]
+include =
+    bless/*.py
+omit    =
+    bless/__about__.py
