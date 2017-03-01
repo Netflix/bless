@@ -22,6 +22,9 @@ LOGGING_LEVEL_DEFAULT = 'INFO'
 TEST_USER_OPTION = 'test_user'
 TEST_USER_DEFAULT = None
 
+EXTENSIONS_OPTION = 'extensions'
+# Default for Extensions is None
+
 BLESS_CA_SECTION = 'Bless CA'
 CA_PRIVATE_KEY_FILE_OPTION = 'ca_private_key_file'
 KMS_KEY_ID_OPTION = 'kms_key_id'

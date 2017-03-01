@@ -5,19 +5,19 @@
 """
 import base64
 import logging
+import os
 import time
 
 import boto3
-import os
-from kmsauth import KMSTokenValidator, TokenValidationError
 from botocore.exceptions import ClientError
+from kmsauth import KMSTokenValidator, TokenValidationError
 from marshmallow.exceptions import ValidationError
+
 from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
     ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
     BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION, KMSAUTH_SECTION, \
-    KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_SERVICE_ID_OPTION, TEST_USER_OPTION
-
+    KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_SERVICE_ID_OPTION, TEST_USER_OPTION, EXTENSIONS_OPTION
 from bless.request.bless_request import BlessSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
@@ -63,6 +63,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     random_seed_bytes = config.getint(BLESS_OPTIONS_SECTION, RANDOM_SEED_BYTES_OPTION)
     ca_private_key_file = config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
     password_ciphertext_b64 = config.getpassword()
+    certificate_extensions = config.get(BLESS_OPTIONS_SECTION, EXTENSIONS_OPTION)
 
     # Process cert request
     schema = BlessSchema(strict=True)
@@ -158,6 +159,11 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     cert_builder.add_valid_principal(request.remote_username)
     cert_builder.set_valid_before(valid_before)
     cert_builder.set_valid_after(valid_after)
+
+    if certificate_extensions is not None:
+        cert_builder.clear_extensions()
+        for e in certificate_extensions.split():
+            cert_builder.add_extension(e)
 
     # cert_builder is needed to obtain the SSH public key's fingerprint
     key_id = 'request[{}] for[{}] from[{}] command[{}] ssh_key:[{}]  ca:[{}] valid_to[{}]'.format(
