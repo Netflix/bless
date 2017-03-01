@@ -18,6 +18,9 @@ RANDOM_SEED_BYTES_DEFAULT = 256
 LOGGING_LEVEL_OPTION = 'logging_level'
 LOGGING_LEVEL_DEFAULT = 'INFO'
 
+CERTIFICATE_TYPE_OPTION = 'certificate_type'
+CERTIFICATE_TYPE_DEFAULT = 'user'
+
 BLESS_CA_SECTION = 'Bless CA'
 CA_PRIVATE_KEY_FILE_OPTION = 'ca_private_key_file'
 KMS_KEY_ID_OPTION = 'kms_key_id'
@@ -41,7 +44,8 @@ class BlessConfig(ConfigParser.RawConfigParser):
         defaults = {CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION: CERTIFICATE_VALIDITY_SEC_DEFAULT,
                     ENTROPY_MINIMUM_BITS_OPTION: ENTROPY_MINIMUM_BITS_DEFAULT,
                     RANDOM_SEED_BYTES_OPTION: RANDOM_SEED_BYTES_DEFAULT,
-                    LOGGING_LEVEL_OPTION: LOGGING_LEVEL_DEFAULT}
+                    LOGGING_LEVEL_OPTION: LOGGING_LEVEL_DEFAULT,
+                    CERTIFICATE_TYPE_OPTION: CERTIFICATE_TYPE_DEFAULT}
         ConfigParser.RawConfigParser.__init__(self, defaults=defaults)
         self.read(config_file)
 
@@ -57,3 +61,12 @@ class BlessConfig(ConfigParser.RawConfigParser):
         :return: A Base64 encoded KMS CiphertextBlob.
         """
         return self.get(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX)
+
+    def get_certificate_type(self):
+        certificate_type_option = self.get(BLESS_OPTIONS_SECTION, CERTIFICATE_TYPE_OPTION)
+        if certificate_type_option == 'user':
+            return 1
+        elif certificate_type_option == 'host':
+            return 2
+        else:
+            raise ValueError('Invalid certificate type option: {}'.format(certificate_type_option))

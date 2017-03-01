@@ -12,7 +12,7 @@ import os
 from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION, ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
     BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION
-from bless.request.bless_request import BlessSchema
+from bless.request.bless_request import BlessUserSchema, BlessHostSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
 from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
@@ -41,6 +41,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     config = BlessConfig(region,
                          config_file=config_file)
 
+    certificate_type = config.get_certificate_type()
     logging_level = config.get(BLESS_OPTIONS_SECTION, LOGGING_LEVEL_OPTION)
     numeric_level = getattr(logging, logging_level.upper(), None)
     if not isinstance(numeric_level, int):
@@ -84,7 +85,10 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                     urandom.write(random_seed)
 
     # Process cert request
-    schema = BlessSchema(strict=True)
+    if certificate_type == SSHCertificateType.HOST:
+        schema = BlessHostSchema(strict=True)
+    else:
+        schema = BlessUserSchema(strict=True)
     request = schema.load(event).data
 
     # cert values determined only by lambda and its configs
@@ -94,24 +98,43 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
 
     # Build the cert
     ca = get_ssh_certificate_authority(ca_private_key, ca_private_key_password)
-    cert_builder = get_ssh_certificate_builder(ca, SSHCertificateType.USER,
+    cert_builder = get_ssh_certificate_builder(ca, certificate_type,
                                                request.public_key_to_sign)
-    cert_builder.add_valid_principal(request.remote_username)
+    if certificate_type == SSHCertificateType.USER:
+        cert_builder.add_valid_principal(request.remote_username)
+        # cert_builder is needed to obtain the SSH public key's fingerprint
+        key_id = 'request[{}] for[{}] from[{}] command[{}] ssh_key:[{}]  ca:[{}] valid_to[{}]'.format(
+            context.aws_request_id, request.bastion_user, request.bastion_user_ip, request.command,
+            cert_builder.ssh_public_key.fingerprint, context.invoked_function_arn,
+            time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
+        cert_type_string = 'user'
+        cert_builder.set_critical_option_source_address(request.bastion_ip)
+    elif certificate_type == SSHCertificateType.HOST:
+        for remote_hostname in request.remote_hostnames:
+            cert_builder.add_valid_principal(remote_hostname)
+        key_id = 'request[{}] ssh_key:[{}]  ca:[{}] valid_to[{}]'.format(
+            context.aws_request_id, cert_builder.ssh_public_key.fingerprint,
+            context.invoked_function_arn, time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
+        cert_type_string = 'host'
+    else:
+        raise ValueError("Unknown certificate type")
+
     cert_builder.set_valid_before(valid_before)
     cert_builder.set_valid_after(valid_after)
 
-    # cert_builder is needed to obtain the SSH public key's fingerprint
-    key_id = 'request[{}] for[{}] from[{}] command[{}] ssh_key:[{}]  ca:[{}] valid_to[{}]'.format(
-        context.aws_request_id, request.bastion_user, request.bastion_user_ip, request.command,
-        cert_builder.ssh_public_key.fingerprint, context.invoked_function_arn,
-        time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
-    cert_builder.set_critical_option_source_address(request.bastion_ip)
     cert_builder.set_key_id(key_id)
     cert = cert_builder.get_cert_file()
 
+    if certificate_type == SSHCertificateType.HOST:
+        remote_name = ', '.join(request.remote_hostnames)
+        bastion_ip = None
+    else:
+        remote_name = request.remote_username
+        bastion_ip = request.bastion_ip
+
     logger.info(
-        'Issued a cert to bastion_ip[{}] for the remote_username of [{}] with the key_id[{}] and '
+        'Issued a {} cert to bastion_ip[{}] for the remote_username of [{}] with the key_id[{}] and '
         'valid_from[{}])'.format(
-            request.bastion_ip, request.remote_username, key_id,
+            cert_type_string, bastion_ip, remote_name, key_id,
             time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_after))))
     return cert
