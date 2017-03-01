@@ -1,11 +1,12 @@
 import base64
 
 import pytest
+from cryptography.hazmat.primitives.serialization import _ssh_read_next_string
+
 from bless.ssh.certificate_authorities.rsa_certificate_authority import RSACertificateAuthority
 from bless.ssh.certificates.rsa_certificate_builder import RSACertificateBuilder
 from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
 from bless.ssh.public_keys.rsa_public_key import RSAPublicKey
-from cryptography.hazmat.primitives.serialization import _ssh_read_next_string
 from tests.ssh.vectors import RSA_CA_PRIVATE_KEY, RSA_CA_PRIVATE_KEY_PASSWORD, \
     EXAMPLE_RSA_PUBLIC_KEY, EXAMPLE_RSA_PUBLIC_KEY_NO_DESCRIPTION, RSA_USER_CERT_MINIMAL, \
     RSA_USER_CERT_DEFAULTS, RSA_USER_CERT_DEFAULTS_NO_PUBLIC_KEY_COMMENT, \
@@ -127,6 +128,7 @@ def test_default_extensions():
     cert_builder = get_basic_cert_builder_rsa()
     cert_builder.set_extensions_to_default()
     assert SSH_CERT_DEFAULT_EXTENSIONS == cert_builder._serialize_extensions()
+
 
 def test_add_extensions():
     extensions = {'permit-port-forwarding',

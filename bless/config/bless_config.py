@@ -22,8 +22,13 @@ LOGGING_LEVEL_DEFAULT = 'INFO'
 TEST_USER_OPTION = 'test_user'
 TEST_USER_DEFAULT = None
 
-EXTENSIONS_OPTION = 'extensions'
-# Default for Extensions is None
+CERTIFICATE_EXTENSIONS_OPTION = 'certificate_extensions'
+# These are the the ssh-keygen default extensions:
+CERTIFICATE_EXTENSIONS_DEFAULT = 'permit-X11-forwarding,' \
+                                 'permit-agent-forwarding,' \
+                                 'permit-port-forwarding,' \
+                                 'permit-pty,' \
+                                 'permit-user-rc'
 
 BLESS_CA_SECTION = 'Bless CA'
 CA_PRIVATE_KEY_FILE_OPTION = 'ca_private_key_file'
@@ -63,7 +68,9 @@ class BlessConfig(ConfigParser.RawConfigParser):
                     TEST_USER_OPTION: TEST_USER_DEFAULT,
                     KMSAUTH_SERVICE_ID_OPTION: KMSAUTH_SERVICE_ID_DEFAULT,
                     KMSAUTH_KEY_ID_OPTION: KMSAUTH_KEY_ID_DEFAULT,
-                    KMSAUTH_USEKMSAUTH_OPTION: KMSAUTH_USEKMSAUTH_DEFAULT}
+                    KMSAUTH_USEKMSAUTH_OPTION: KMSAUTH_USEKMSAUTH_DEFAULT,
+                    CERTIFICATE_EXTENSIONS_OPTION: CERTIFICATE_EXTENSIONS_DEFAULT
+                    }
         ConfigParser.RawConfigParser.__init__(self, defaults=defaults)
         self.read(config_file)
 

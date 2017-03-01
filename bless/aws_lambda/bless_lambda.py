@@ -17,7 +17,7 @@ from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
     ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
     BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION, KMSAUTH_SECTION, \
-    KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_SERVICE_ID_OPTION, TEST_USER_OPTION, EXTENSIONS_OPTION
+    KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_SERVICE_ID_OPTION, TEST_USER_OPTION, CERTIFICATE_EXTENSIONS_OPTION
 from bless.request.bless_request import BlessSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
@@ -63,7 +63,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     random_seed_bytes = config.getint(BLESS_OPTIONS_SECTION, RANDOM_SEED_BYTES_OPTION)
     ca_private_key_file = config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
     password_ciphertext_b64 = config.getpassword()
-    certificate_extensions = config.get(BLESS_OPTIONS_SECTION, EXTENSIONS_OPTION)
+    certificate_extensions = config.get(BLESS_OPTIONS_SECTION, CERTIFICATE_EXTENSIONS_OPTION)
 
     # Process cert request
     schema = BlessSchema(strict=True)
@@ -160,10 +160,12 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     cert_builder.set_valid_before(valid_before)
     cert_builder.set_valid_after(valid_after)
 
-    if certificate_extensions is not None:
+    if certificate_extensions:
+        for e in certificate_extensions.split(','):
+            if e:
+                cert_builder.add_extension(e)
+    else:
         cert_builder.clear_extensions()
-        for e in certificate_extensions.split():
-            cert_builder.add_extension(e)
 
     # cert_builder is needed to obtain the SSH public key's fingerprint
     key_id = 'request[{}] for[{}] from[{}] command[{}] ssh_key:[{}]  ca:[{}] valid_to[{}]'.format(
