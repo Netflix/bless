@@ -3,10 +3,25 @@ from bless.request.bless_request import validate_ip, validate_user
 from marshmallow import ValidationError
 
 
-def test_validate_ip():
-    validate_ip(u'127.0.0.1')
-    with pytest.raises(ValidationError):
-        validate_ip(u'256.0.0.0')
+@pytest.mark.parametrize("test_input", [
+    (u'127.0.0.1'),
+    (u'192.168.0.0/24'),
+    (u','.join([u'127.0.0.1', u'10.10.255.0/24']))
+])
+def test_validate_ip(test_input):
+    validate_ip(test_input)
+
+
+@pytest.mark.parametrize("test_input", [
+    (u'256.0.0.0'),
+    (u'127.0.0.1/24'),
+    (u'127.0.0.1,256.0.0.0'),
+    (u'127.0.0.1;10.10.255.0/24')
+])
+def test_validate_ip_contains_invalid_ips(test_input):
+    with pytest.raises(ValidationError) as e:
+        validate_ip(test_input)
+    assert e.value.message == 'Invalid IP address.'
 
 
 def test_validate_user_too_long():
