@@ -110,7 +110,7 @@ class SSHCertificateBuilder(object):
             if valid_principal not in self.valid_principals:
                 self.valid_principals.append(valid_principal)
             else:
-                raise ValueError("Principal already added.")
+                raise ValueError("Principal {} already added.".format(valid_principal))
         else:
             raise ValueError("Provide a non-null string")
 

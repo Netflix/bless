@@ -1,5 +1,5 @@
 import pytest
-from bless.request.bless_request import validate_ips, validate_user
+from bless.request.bless_request import validate_ips, validate_user, validate_principals
 from marshmallow import ValidationError
 
 
@@ -21,19 +21,20 @@ def test_validate_ips_cidr():
 def test_validate_user_too_long():
     with pytest.raises(ValidationError) as e:
         validate_user('a33characterusernameyoumustbenuts')
-    assert e.value.message == 'Username is too long'
+    assert e.value.message == 'Username is too long.'
 
 
 @pytest.mark.parametrize("test_input", [
     ('user#invalid'),
     ('$userinvalid'),
     ('userinvali$d'),
-    ('userin&valid')
+    ('userin&valid'),
+    (' userinvalid')
 ])
 def test_validate_user_contains_junk(test_input):
     with pytest.raises(ValidationError) as e:
         validate_user(test_input)
-    assert e.value.message == 'Username contains invalid characters'
+    assert e.value.message == 'Username contains invalid characters.'
 
 
 @pytest.mark.parametrize("test_input", [
@@ -44,3 +45,22 @@ def test_validate_user_contains_junk(test_input):
 ])
 def test_validate_user(test_input):
     validate_user(test_input)
+
+@pytest.mark.parametrize("test_input", [
+    ('uservalid'),
+    ('uservalid,uservalid2'),
+    ('uservalid,!"$%&\'()*+-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~,uservalid2')
+])
+def test_validate_multiple_principals(test_input):
+    validate_principals(test_input)
+
+@pytest.mark.parametrize("test_input", [
+    ('user invalid'),
+    ('uservalid,us#erinvalid2'),
+    ('uservalid,,uservalid2'),
+    (' uservalid'),
+])
+def test_validate_multiple_principals(test_input):
+    with pytest.raises(ValidationError) as e:
+        validate_principals(test_input)
+    assert e.value.message == 'Principal contains invalid characters.'

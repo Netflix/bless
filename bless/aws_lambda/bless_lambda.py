@@ -13,11 +13,20 @@ from botocore.exceptions import ClientError
 from kmsauth import KMSTokenValidator, TokenValidationError
 from marshmallow.exceptions import ValidationError
 
-from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
-    CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
-    ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
-    BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION, KMSAUTH_SECTION, \
-    KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_SERVICE_ID_OPTION, TEST_USER_OPTION, CERTIFICATE_EXTENSIONS_OPTION
+from bless.config.bless_config import BlessConfig, \
+    BLESS_OPTIONS_SECTION, \
+    CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, \
+    CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
+    ENTROPY_MINIMUM_BITS_OPTION, \
+    RANDOM_SEED_BYTES_OPTION, \
+    BLESS_CA_SECTION, \
+    CA_PRIVATE_KEY_FILE_OPTION, \
+    LOGGING_LEVEL_OPTION, \
+    KMSAUTH_SECTION, \
+    KMSAUTH_USEKMSAUTH_OPTION, \
+    KMSAUTH_SERVICE_ID_OPTION, \
+    TEST_USER_OPTION, \
+    CERTIFICATE_EXTENSIONS_OPTION
 from bless.request.bless_request import BlessSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
@@ -56,9 +65,9 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     logger.setLevel(numeric_level)
 
     certificate_validity_before_seconds = config.getint(BLESS_OPTIONS_SECTION,
-                                            CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION)
+                                                        CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION)
     certificate_validity_after_seconds = config.getint(BLESS_OPTIONS_SECTION,
-                                            CERTIFICATE_VALIDITY_AFTER_SEC_OPTION)
+                                                       CERTIFICATE_VALIDITY_AFTER_SEC_OPTION)
     entropy_minimum_bits = config.getint(BLESS_OPTIONS_SECTION, ENTROPY_MINIMUM_BITS_OPTION)
     random_seed_bytes = config.getint(BLESS_OPTIONS_SECTION, RANDOM_SEED_BYTES_OPTION)
     ca_private_key_file = config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
@@ -70,10 +79,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     try:
         request = schema.load(event).data
     except ValidationError as e:
-        return {
-            'errorType': 'InputValidationError',
-            'errorMessage': str(e)
-        }
+        return error_response('InputValidationError', str(e))
 
     logger.info('Bless lambda invoked by [user: {0}, bastion_ips:{1}, public_key: {2}, kmsauth_token:{3}]'.format(
         request.bastion_user,
@@ -93,10 +99,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                 CiphertextBlob=base64.b64decode(password_ciphertext_b64))
             ca_private_key_password = ca_password['Plaintext']
         except ClientError as e:
-            return {
-                'errorType': 'ClientError',
-                'errorMessage': str(e)
-            }
+            return error_response('ClientError', str(e))
 
     # if running as a Lambda, we can check the entropy pool and seed it with KMS if desired
     if entropy_check:
@@ -141,22 +144,21 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                 )
                 # decrypt_token will raise a TokenValidationError if token doesn't match
                 validator.decrypt_token(
-                    "2/user/{}".format(request.remote_username),
+                    "2/user/{}".format(request.remote_usernames.split(',')[0]),
                     request.kmsauth_token
                 )
             except TokenValidationError as e:
-                return {
-                    'errorType': 'KMSAuthValidationError',
-                    'errorMessage': str(e)
-                }
+                return error_response('KMSAuthValidationError', str(e))
         else:
-            raise ValueError('Invalid request, missing kmsauth token')
+            return error_response('InputValidationError', 'Invalid request, missing kmsauth token')
 
     # Build the cert
     ca = get_ssh_certificate_authority(ca_private_key, ca_private_key_password)
     cert_builder = get_ssh_certificate_builder(ca, SSHCertificateType.USER,
                                                request.public_key_to_sign)
-    cert_builder.add_valid_principal(request.remote_username)
+    for username in request.remote_usernames.split(','):
+        cert_builder.add_valid_principal(username)
+
     cert_builder.set_valid_before(valid_before)
     cert_builder.set_valid_after(valid_after)
 
@@ -172,13 +174,26 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
         context.aws_request_id, request.bastion_user, request.bastion_user_ip, request.command,
         cert_builder.ssh_public_key.fingerprint, context.invoked_function_arn,
         time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before)))
-    cert_builder.set_critical_option_source_addresses('{}'.format(request.bastion_ips))
+    cert_builder.set_critical_option_source_addresses(request.bastion_ips)
     cert_builder.set_key_id(key_id)
     cert = cert_builder.get_cert_file(bypass_time_validity_check)
 
     logger.info(
-        'Issued a cert to bastion_ips[{}] for the remote_username of [{}] with the key_id[{}] and '
+        'Issued a cert to bastion_ips[{}] for the remote_usernames of [{}] with the key_id[{}] and '
         'valid_from[{}])'.format(
-            request.bastion_ips, request.remote_username, key_id,
+            request.bastion_ips, request.remote_usernames, key_id,
             time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_after))))
-    return cert
+    return success_response(cert)
+
+
+def success_response(cert):
+    return {
+        'certificate': cert
+    }
+
+
+def error_response(error_type, error_message):
+    return {
+        'errorType': error_type,
+        'errorMessage': error_message
+    }

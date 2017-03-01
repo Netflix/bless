@@ -10,6 +10,9 @@ from marshmallow import Schema, fields, post_load, ValidationError, validates_sc
 
 # man 8 useradd
 USERNAME_PATTERN = re.compile('[a-z_][a-z0-9_-]*[$]?\Z')
+# It appears that most printable ascii is valid, excluding whitespace, #, and commas.
+# There doesn't seem to be any practical size limits of a principal (> 4096B allowed).
+PRINCIPAL_PATTERN = re.compile(r'[\d\w!"$%&\'()*+\-./:;<=>?@\[\\\]\^`{|}~]+\Z')
 VALID_SSH_RSA_PUBLIC_KEY_HEADER = "ssh-rsa AAAAB3NzaC1yc2"
 
 
@@ -23,9 +26,15 @@ def validate_ips(ips):
 
 def validate_user(user):
     if len(user) > 32:
-        raise ValidationError('Username is too long')
+        raise ValidationError('Username is too long.')
     if USERNAME_PATTERN.match(user) is None:
-        raise ValidationError('Username contains invalid characters')
+        raise ValidationError('Username contains invalid characters.')
+
+
+def validate_principals(principals):
+    for principal in principals.split(','):
+        if PRINCIPAL_PATTERN.match(principal) is None:
+            raise ValidationError('Principal contains invalid characters.')
 
 
 def validate_ssh_public_key(public_key):
@@ -42,7 +51,7 @@ class BlessSchema(Schema):
     bastion_user_ip = fields.Str(validate=validate_ips, required=True)
     command = fields.Str(required=True)
     public_key_to_sign = fields.Str(validate=validate_ssh_public_key, required=True)
-    remote_username = fields.Str(validate=validate_user, required=True)
+    remote_usernames = fields.Str(validate=validate_principals, required=True)
     kmsauth_token = fields.Str(required=False)
 
     @validates_schema(pass_original=True)
@@ -58,7 +67,7 @@ class BlessSchema(Schema):
 
 class BlessRequest:
     def __init__(self, bastion_ips, bastion_user, bastion_user_ip, command, public_key_to_sign,
-                 remote_username, kmsauth_token=None):
+                 remote_usernames, kmsauth_token=None):
         """
         A BlessRequest must have the following key value pairs to be valid.
         :param bastion_ips: The source IPs where the SSH connection will be initiated from.  This is
@@ -68,16 +77,16 @@ class BlessRequest:
         :param command: Text information about the SSH request of the user.
         :param public_key_to_sign: The id_rsa.pub that will be used in the SSH request.  This is
         enforced in the issued certificate.
-        :param remote_username: The username on the remote server that will be used in the SSH
-        request.  This is enforced in the issued certificate.
-        :param kmsauth_token: An optional kms auth token to authenticate the user
+        :param remote_usernames: Comma-separated list of username(s) or authorized principals on the remote
+        server that will be used in the SSH request.  This is enforced in the issued certificate.
+        :param kmsauth_token: An optional kms auth token to authenticate the user.
         """
         self.bastion_ips = bastion_ips
         self.bastion_user = bastion_user
         self.bastion_user_ip = bastion_user_ip
         self.command = command
         self.public_key_to_sign = public_key_to_sign
-        self.remote_username = remote_username
+        self.remote_usernames = remote_usernames
         self.kmsauth_token = kmsauth_token
 
     def __eq__(self, other):

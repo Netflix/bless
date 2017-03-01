@@ -94,6 +94,6 @@ class BlessConfig(ConfigParser.RawConfigParser):
         """
         Returns a list of kmsauth keys used for validation (so a key generated
         in one region can validate in another).
-        :return: A list of kmsauth key id's
+        :return: A list of kmsauth key ids
         """
         return map(str.strip, self.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION).split(','))
