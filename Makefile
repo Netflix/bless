@@ -24,8 +24,10 @@ lint:
 	@echo ""
 
 coverage:
-	coverage run --branch --source=bless -m py.test tests
+	@echo "--> Running Python tests with coverage"
+	coverage run --branch --source=bless -m py.test tests || exit 1
 	coverage html
+	@echo ""
 
 publish:
 	rm -rf ./publish/bless_lambda/
