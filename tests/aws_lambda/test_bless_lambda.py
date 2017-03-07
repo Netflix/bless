@@ -1,4 +1,6 @@
+import json
 import os
+
 import pytest
 
 from bless.aws_lambda.bless_lambda import lambda_handler
@@ -12,10 +14,74 @@ class Context(object):
 
 
 VALID_TEST_REQUEST = {
-    "remote_username": "user",
+    "remote_usernames": "user",
     "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
     "command": "ssh user@server",
-    "bastion_ip": "127.0.0.1",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1"
+}
+
+INVALID_TEST_REQUEST = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "invalid_ip",
+    "bastion_user": "user",
+    "bastion_user_ip": "invalid_ip"
+}
+
+VALID_TEST_REQUEST_KMSAUTH = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1",
+    "kmsauth_token": "validkmsauthtoken",
+}
+
+INVALID_TEST_REQUEST_KEY_TYPE = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_ED25519_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1"
+}
+
+INVALID_TEST_REQUEST_EXTRA_FIELD = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1",
+    "bastion_ip": "127.0.0.1"  # Note this is now an invalid field.
+}
+
+INVALID_TEST_REQUEST_MISSING_FIELD = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1"
+}
+
+VALID_TEST_REQUEST_MULTIPLE_PRINCIPALS = {
+    "remote_usernames": "user1,user2",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1"
+}
+
+INVALID_TEST_REQUEST_MULTIPLE_PRINCIPALS = {
+    "remote_usernames": ",user#",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
     "bastion_user": "user",
     "bastion_user_ip": "127.0.0.1"
 }
@@ -24,11 +90,45 @@ os.environ['AWS_REGION'] = 'us-west-2'
 
 
 def test_basic_local_request():
-    cert = lambda_handler(VALID_TEST_REQUEST, context=Context,
-                          ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
-                          entropy_check=False,
-                          config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
-    assert cert.startswith('ssh-rsa-cert-v01@openssh.com ')
+    output = lambda_handler(VALID_TEST_REQUEST, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_basic_local_unused_kmsauth_request():
+    output = lambda_handler(VALID_TEST_REQUEST_KMSAUTH, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_basic_local_missing_kmsauth_request():
+    output = lambda_handler(VALID_TEST_REQUEST, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-kmsauth.cfg'))
+    assert output['errorType'] == 'InputValidationError'
+
+
+def test_invalid_kmsauth_request():
+    output = lambda_handler(VALID_TEST_REQUEST_KMSAUTH, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-kmsauth.cfg'))
+    assert output['errorType'] == 'KMSAuthValidationError'
+
+
+def test_invalid_request():
+    output = lambda_handler(INVALID_TEST_REQUEST, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+    assert output['errorType'] == 'InputValidationError'
 
 
 def test_local_request_key_not_found():
@@ -48,16 +148,68 @@ def test_local_request_config_not_found():
 
 
 def test_local_request_invalid_pub_key():
-    invalid_key_request = {
-        "remote_username": "user",
-        "public_key_to_sign": EXAMPLE_ED25519_PUBLIC_KEY,
-        "command": "ssh user@server",
-        "bastion_ip": "127.0.0.1",
-        "bastion_user": "user",
-        "bastion_user_ip": "127.0.0.1"
-    }
-    with pytest.raises(TypeError):
-        lambda_handler(invalid_key_request, context=Context,
-                       ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
-                       entropy_check=False,
-                       config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+    output = lambda_handler(INVALID_TEST_REQUEST_KEY_TYPE, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+    assert output['errorType'] == 'InputValidationError'
+
+
+def test_local_request_extra_field():
+    output = lambda_handler(INVALID_TEST_REQUEST_EXTRA_FIELD, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+    assert output['errorType'] == 'InputValidationError'
+
+
+def test_local_request_missing_field():
+    output = lambda_handler(INVALID_TEST_REQUEST_MISSING_FIELD, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+    assert output['errorType'] == 'InputValidationError'
+
+
+def test_local_request_with_test_user():
+    output = lambda_handler(VALID_TEST_REQUEST, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test-with-test-user.cfg'))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_local_request_with_custom_certificate_extensions():
+    output = lambda_handler(VALID_TEST_REQUEST, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-with-certificate-extensions.cfg'))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_local_request_with_empty_certificate_extensions():
+    output = lambda_handler(VALID_TEST_REQUEST, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-with-certificate-extensions-empty.cfg'))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_local_request_with_multiple_principals():
+    output = lambda_handler(VALID_TEST_REQUEST_MULTIPLE_PRINCIPALS, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test.cfg'))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_invalid_request_with_multiple_principals():
+    output = lambda_handler(INVALID_TEST_REQUEST_MULTIPLE_PRINCIPALS, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test.cfg'))
+    assert output['errorType'] == 'InputValidationError'

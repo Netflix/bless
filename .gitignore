@@ -2,10 +2,8 @@
 *.pyc
 *.cache/
 .idea/
-bless.egg-info/
+BLESS.egg-info/
 htmlcov/
 libs/
 publish/
 venv/
-aws_lambda_libs/
-lambda_configs/
