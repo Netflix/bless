@@ -38,4 +38,15 @@ publish:
 	cp -r ./lambda_configs/. ./publish/bless_lambda/
 	cd ./publish/bless_lambda && zip -r ../bless_lambda.zip .
 
+compile:
+	yum install -y gcc libffi-devel openssl-devel python27-virtualenv
+	virtualenv /tmp/venv
+	/tmp/venv/bin/pip install --upgrade pip setuptools
+	/tmp/venv/bin/pip install -e .
+	cp -r /tmp/venv/lib/python2.7/site-packages/. ./aws_lambda_libs
+
+lambda-deps:
+	@echo "--> Compiling lambda dependencies"
+	docker run --rm -it -v ${CURDIR}:/src -w /src amazonlinux make compile
+
 .PHONY: develop dev-docs clean test lint coverage publish

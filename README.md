@@ -60,6 +60,10 @@ all of the dependencies.  AWS Lambda only supports Python 2.7 and BLESS depends 
 [Cryptography](https://cryptography.io/en/latest/), which must be compiled.  You will need to
 compile and include your dependencies before you can publish a working AWS Lambda.
 
+You can use a docker container running amazon linux:
+- Execute ```make lambda-deps``` and this will run a container and save all the dependencies in ./aws_lambda_libs
+
+Alternatively you can:
 - Deploy an [Amazon Linux AMI](http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html)
 - SSH onto that instance
 - Copy BLESS' `setup.py` to the instance
