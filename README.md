@@ -108,6 +108,7 @@ def lambda_handler(event, context):
 - Manage your Private Keys .pem files and passwords outside of this repo.
 - Update your bless_deploy.cfg with your Private Key's filename and encrypted passwords.
 - Provide your desired ./lambda_configs/ca_key_name.pem prior to Publishing a new Lambda .zip
+- Set the permissions of ./lambda_configs/ca_key_name.pem to 444.
 
 ### BLESS Config File
 - Refer to the the [Example BLESS Config File](bless/config/bless_deploy_example.cfg) and its
