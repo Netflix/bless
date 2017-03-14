@@ -26,7 +26,7 @@ PRINCIPAL_PATTERN = re.compile(r'[\d\w!"$%&\'()*+\-./:;<=>?@\[\\\]\^`{|}~]+\Z')
 VALID_SSH_RSA_PUBLIC_KEY_HEADER = "ssh-rsa AAAAB3NzaC1yc2"
 
 USERNAME_VALIDATION_OPTIONS = Enum('UserNameValidationOptions',
-                                   'useradd debian relaxed')
+                                   'useradd debian relaxed disabled')
 
 username_validation = USERNAME_VALIDATION_OPTIONS.useradd
 
@@ -45,6 +45,8 @@ def validate_ips(ips):
 
 
 def validate_user(user):
+    if username_validation == USERNAME_VALIDATION_OPTIONS.disabled:
+        return
     if len(user) > 32:
         raise ValidationError('Username is too long.')
     if username_validation == USERNAME_VALIDATION_OPTIONS.relaxed:

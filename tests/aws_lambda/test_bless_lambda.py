@@ -31,6 +31,15 @@ VALID_TEST_REQUEST_USERNAME_VALIDATION_RELAXED = {
     "bastion_user_ip": "127.0.0.1"
 }
 
+VALID_TEST_REQUEST_USERNAME_VALIDATION_DISABLED = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "a33characterusernameyoumustbenuts",
+    "bastion_user_ip": "127.0.0.1"
+}
+
 INVALID_TEST_REQUEST = {
     "remote_usernames": "user",
     "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
@@ -129,6 +138,14 @@ def test_basic_local_username_validation_relaxed():
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
                                                      'bless-test-username-validation-relaxed.cfg'))
+
+
+def test_basic_local_username_validation_disabled():
+    output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_DISABLED, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-username-validation-disabled.cfg'))
     assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
 
 

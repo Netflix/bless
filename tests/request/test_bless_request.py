@@ -115,6 +115,15 @@ def test_validate_user_relaxed(test_input, monkeypatch):
 
 
 @pytest.mark.parametrize("test_input", [
+    ('a33characterusernameyoumustbenuts'),
+    ('~:, \n\t@')
+])
+def test_validate_user_disabled(test_input, monkeypatch):
+    monkeypatch.setattr('bless.request.bless_request.username_validation', USERNAME_VALIDATION_OPTIONS.disabled)
+    validate_user(test_input)
+
+
+@pytest.mark.parametrize("test_input", [
     ('uservalid'),
     ('uservalid,uservalid2'),
     ('uservalid,!"$%&\'()*+-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~,uservalid2')
@@ -138,10 +147,12 @@ def test_set_username_validation_invalid():
     with pytest.raises(KeyError) as e:
         set_username_validation('random')
 
+
 @pytest.mark.parametrize("test_input", [
     ('useradd'),
     ('debian'),
     ('relaxed'),
+    ('disabled')
 ])
 def test_set_username_validation(test_input):
     set_username_validation(test_input)
