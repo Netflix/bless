@@ -26,6 +26,7 @@ VALID_SSH_RSA_PUBLIC_KEY_HEADER = "ssh-rsa AAAAB3NzaC1yc2"
 
 USERNAME_VALIDATION_USERADD = 'useradd'
 USERNAME_VALIDATION_DEBIAN = 'debian'
+USERNAME_VALIDATION_RELAXED = 'relaxed'
 
 username_validation = USERNAME_VALIDATION_USERADD
 
@@ -41,6 +42,8 @@ def validate_ips(ips):
 def validate_user(user):
     if len(user) > 32:
         raise ValidationError('Username is too long.')
+    if username_validation == USERNAME_VALIDATION_RELAXED:
+        return
     if username_validation == USERNAME_VALIDATION_DEBIAN:
         _validate_user_debian(user)
     else:
