@@ -46,6 +46,45 @@ def test_validate_user_contains_junk(test_input):
 def test_validate_user(test_input):
     validate_user(test_input)
 
+
+def test_validate_user_debian_too_long(monkeypatch):
+    monkeypatch.setattr('bless.request.bless_request.username_validation', 'debian')
+    with pytest.raises(ValidationError) as e:
+        validate_user('a33characterusernameyoumustbenuts')
+    assert e.value.message == 'Username is too long.'
+
+
+@pytest.mark.parametrize("test_input", [
+    ('~userinvalid'),
+    ('-userinvalid'),
+    ('+userinvalid'),
+    ('user:invalid'),
+    ('user,invalid'),
+    ('user invalid'),
+    ('user\tinvalid'),
+    ('user\ninvalid'),
+])
+def test_validate_user_debian_invalid(test_input, monkeypatch):
+    monkeypatch.setattr('bless.request.bless_request.username_validation', 'debian')
+    with pytest.raises(ValidationError) as e:
+        validate_user(test_input)
+    assert e.value.message == 'Username contains invalid characters.'
+
+
+@pytest.mark.parametrize("test_input", [
+    ('uservalid'),
+    ('a32characterusernameyoumustok$'),
+    ('_uservalid$'),
+    ('abc123_-valid'),
+    ('user~valid'),
+    ('user-valid'),
+    ('user+valid'),
+])
+def test_validate_user_debian(test_input, monkeypatch):
+    monkeypatch.setattr('bless.request.bless_request.username_validation', 'debian')
+    validate_user(test_input)
+
+
 @pytest.mark.parametrize("test_input", [
     ('uservalid'),
     ('uservalid,uservalid2'),
