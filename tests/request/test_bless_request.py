@@ -85,6 +85,35 @@ def test_validate_user_debian(test_input, monkeypatch):
     validate_user(test_input)
 
 
+def test_validate_user_relaxed_too_long(monkeypatch):
+    monkeypatch.setattr('bless.request.bless_request.username_validation', 'relaxed')
+    with pytest.raises(ValidationError) as e:
+        validate_user('a33characterusernameyoumustbenuts')
+    assert e.value.message == 'Username is too long.'
+
+
+@pytest.mark.parametrize("test_input", [
+    ('uservalid'),
+    ('a32characterusernameyoumustok$'),
+    ('_uservalid$'),
+    ('abc123_-valid'),
+    ('user~valid'),
+    ('user-valid'),
+    ('user+valid'),
+    ('~uservalid'),
+    ('-uservalid'),
+    ('+uservalid'),
+    ('user:valid'),
+    ('user,valid'),
+    ('user valid'),
+    ('user\tvalid'),
+    ('user\nvalid'),
+])
+def test_validate_user_relaxed(test_input, monkeypatch):
+    monkeypatch.setattr('bless.request.bless_request.username_validation', 'relaxed')
+    validate_user(test_input)
+
+
 @pytest.mark.parametrize("test_input", [
     ('uservalid'),
     ('uservalid,uservalid2'),
