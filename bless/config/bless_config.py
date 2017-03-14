@@ -48,6 +48,9 @@ KMSAUTH_KEY_ID_DEFAULT = ''
 KMSAUTH_SERVICE_ID_OPTION = 'kmsauth_serviceid'
 KMSAUTH_SERVICE_ID_DEFAULT = None
 
+USERNAME_VALIDATION_OPTION = 'username_validation'
+USERNAME_VALIDATION_DEFAULT = 'useradd'
+
 
 class BlessConfig(ConfigParser.RawConfigParser, object):
     def __init__(self, aws_region, config_file):
@@ -71,7 +74,8 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
                     KMSAUTH_SERVICE_ID_OPTION: KMSAUTH_SERVICE_ID_DEFAULT,
                     KMSAUTH_KEY_ID_OPTION: KMSAUTH_KEY_ID_DEFAULT,
                     KMSAUTH_USEKMSAUTH_OPTION: KMSAUTH_USEKMSAUTH_DEFAULT,
-                    CERTIFICATE_EXTENSIONS_OPTION: CERTIFICATE_EXTENSIONS_DEFAULT
+                    CERTIFICATE_EXTENSIONS_OPTION: CERTIFICATE_EXTENSIONS_DEFAULT,
+                    USERNAME_VALIDATION_OPTION: USERNAME_VALIDATION_DEFAULT,
                     }
         ConfigParser.RawConfigParser.__init__(self, defaults=defaults)
         self.read(config_file)
