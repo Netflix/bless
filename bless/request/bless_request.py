@@ -3,6 +3,7 @@
     :copyright: (c) 2016 by Netflix Inc., see AUTHORS for more
     :license: Apache, see LICENSE for more details.
 """
+from enum import Enum
 import re
 
 import ipaddress
@@ -24,11 +25,15 @@ USERNAME_PATTERN_DEBIAN = re.compile('\A[^-+~][^:,\s]*\Z')
 PRINCIPAL_PATTERN = re.compile(r'[\d\w!"$%&\'()*+\-./:;<=>?@\[\\\]\^`{|}~]+\Z')
 VALID_SSH_RSA_PUBLIC_KEY_HEADER = "ssh-rsa AAAAB3NzaC1yc2"
 
-USERNAME_VALIDATION_USERADD = 'useradd'
-USERNAME_VALIDATION_DEBIAN = 'debian'
-USERNAME_VALIDATION_RELAXED = 'relaxed'
+USERNAME_VALIDATION_OPTIONS = Enum('UserNameValidationOptions',
+                                   'useradd debian relaxed')
 
-username_validation = USERNAME_VALIDATION_USERADD
+username_validation = USERNAME_VALIDATION_OPTIONS.useradd
+
+
+def set_username_validation(value):
+    global username_validation
+    username_validation = USERNAME_VALIDATION_OPTIONS[value]
 
 
 def validate_ips(ips):
@@ -42,9 +47,9 @@ def validate_ips(ips):
 def validate_user(user):
     if len(user) > 32:
         raise ValidationError('Username is too long.')
-    if username_validation == USERNAME_VALIDATION_RELAXED:
+    if username_validation == USERNAME_VALIDATION_OPTIONS.relaxed:
         return
-    if username_validation == USERNAME_VALIDATION_DEBIAN:
+    if username_validation == USERNAME_VALIDATION_OPTIONS.debian:
         _validate_user_debian(user)
     else:
         _validate_user_useradd(user)
