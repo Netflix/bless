@@ -121,7 +121,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     current_time = int(time.time())
     test_user = config.get(BLESS_OPTIONS_SECTION, TEST_USER_OPTION)
     if (test_user and (request.bastion_user == test_user or
-            request.remote_username == test_user)):
+            request.remote_usernames == test_user)):
         # This is a test call, the lambda will issue an invalid
         # certificate where valid_before < valid_after
         valid_before = current_time
