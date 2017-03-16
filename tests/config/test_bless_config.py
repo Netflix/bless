@@ -6,7 +6,9 @@ from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
     ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
     CERTIFICATE_VALIDITY_SEC_DEFAULT, ENTROPY_MINIMUM_BITS_DEFAULT, RANDOM_SEED_BYTES_DEFAULT, \
-    LOGGING_LEVEL_DEFAULT, LOGGING_LEVEL_OPTION
+    LOGGING_LEVEL_DEFAULT, LOGGING_LEVEL_OPTION, BLESS_CA_SECTION, \
+    CA_PRIVATE_KEY_FILE_OPTION, KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_KEY_ID_OPTION, \
+    KMSAUTH_SERVICE_ID_OPTION, CERTIFICATE_EXTENSIONS_OPTION
 
 
 def test_empty_config():
@@ -19,6 +21,43 @@ def test_config_no_password():
         BlessConfig('bogus-region',
                     config_file=os.path.join(os.path.dirname(__file__), 'full.cfg'))
     assert 'No Region Specific Password Provided.' == e.value.message
+
+def test_config_environment_override(monkeypatch):
+    extra_environment_variables = {
+        'bless_options_certificate_validity_after_seconds': '1',
+        'bless_options_certificate_validity_before_seconds': '1',
+        'bless_options_entropy_minimum_bits': '2',
+        'bless_options_random_seed_bytes': '3',
+        'bless_options_logging_level': 'DEBUG',
+        'bless_options_certificate_extensions': 'permit-X11-forwarding',
+
+        'bless_ca_us-east-1_password': '<INSERT_US-EAST-1_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
+        'bless_ca_ca_private_key_file': '<INSERT_YOUR_ENCRYPTED_PEM_FILE_NAME>',
+
+        'kms_auth_use_kmsauth': 'True',
+        'kms_auth_kmsauth_key_id': '<INSERT_ARN>',
+        'kms_auth_kmsauth_serviceid': 'bless-test',
+    }
+
+    for k,v in extra_environment_variables.items():
+        monkeypatch.setenv(k, v)
+
+    # Create an empty config, everything is set in the environment
+    config = BlessConfig('us-east-1', config_file='')
+
+    assert 1 == config.getint(BLESS_OPTIONS_SECTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION)
+    assert 1 == config.getint(BLESS_OPTIONS_SECTION, CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION)
+    assert 2 == config.getint(BLESS_OPTIONS_SECTION, ENTROPY_MINIMUM_BITS_OPTION)
+    assert 3 == config.getint(BLESS_OPTIONS_SECTION, RANDOM_SEED_BYTES_OPTION)
+    assert 'DEBUG' == config.get(BLESS_OPTIONS_SECTION, LOGGING_LEVEL_OPTION)
+    assert 'permit-X11-forwarding' == config.get(BLESS_OPTIONS_SECTION, CERTIFICATE_EXTENSIONS_OPTION)
+
+    assert '<INSERT_US-EAST-1_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>' == config.getpassword()
+    assert '<INSERT_YOUR_ENCRYPTED_PEM_FILE_NAME>' == config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
+
+    assert config.getboolean(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION)
+    assert '<INSERT_ARN>' == config.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION)
+    assert 'bless-test' == config.get(KMSAUTH_SECTION, KMSAUTH_SERVICE_ID_OPTION)
 
 
 @pytest.mark.parametrize(

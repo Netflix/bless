@@ -120,6 +120,8 @@ included documentation.
 - Manage your bless_deploy.cfg files outside of this repo.
 - Provide your desired ./lambda_configs/bless_deploy.cfg prior to Publishing a new Lambda .zip
 - The required [Bless CA] option values must be set for your environment.
+- Every option can be changed in the environment. The environment variable name is contructed
+as section_name_option_name (all lowercase, spaces replaced with underscores).
 
 ### Publish Lambda .zip
 - Provide your desired ./lambda_configs/ca_key_name.pem prior to Publishing
