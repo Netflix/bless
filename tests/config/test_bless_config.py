@@ -1,3 +1,4 @@
+import base64
 import os
 
 import pytest
@@ -6,7 +7,7 @@ from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
     ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
     CERTIFICATE_VALIDITY_SEC_DEFAULT, ENTROPY_MINIMUM_BITS_DEFAULT, RANDOM_SEED_BYTES_DEFAULT, \
-    LOGGING_LEVEL_DEFAULT, LOGGING_LEVEL_OPTION, BLESS_CA_SECTION, REGION_PASSWORD_OPTION_SUFFIX, \
+    LOGGING_LEVEL_DEFAULT, LOGGING_LEVEL_OPTION, BLESS_CA_SECTION, \
     CA_PRIVATE_KEY_FILE_OPTION, KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_KEY_ID_OPTION, \
     KMSAUTH_SERVICE_ID_OPTION, CERTIFICATE_EXTENSIONS_OPTION
 
@@ -39,6 +40,7 @@ def test_config_environment_override(monkeypatch):
         'bless_ca_us-east-1_password': '<INSERT_US-EAST-1_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
         'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
         'bless_ca_ca_private_key_file': '<INSERT_YOUR_ENCRYPTED_PEM_FILE_NAME>',
+        'bless_ca_ca_private_key': base64.b64encode('<INSERT_YOUR_ENCRYPTED_PEM_FILE_CONTENT>'),
 
         'kms_auth_use_kmsauth': 'True',
         'kms_auth_kmsauth_key_id': '<INSERT_ARN>',
@@ -60,6 +62,7 @@ def test_config_environment_override(monkeypatch):
 
     assert '<INSERT_US-EAST-1_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>' == config.getpassword()
     assert '<INSERT_YOUR_ENCRYPTED_PEM_FILE_NAME>' == config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
+    assert '<INSERT_YOUR_ENCRYPTED_PEM_FILE_CONTENT>' == config.getprivatekey()
 
     assert config.getboolean(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION)
     assert '<INSERT_ARN>' == config.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION)

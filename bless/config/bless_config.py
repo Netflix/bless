@@ -4,6 +4,7 @@
     :license: Apache, see LICENSE for more details.
 """
 import ConfigParser
+import base64
 import os
 
 BLESS_OPTIONS_SECTION = 'Bless Options'
@@ -33,6 +34,7 @@ CERTIFICATE_EXTENSIONS_DEFAULT = 'permit-X11-forwarding,' \
 
 BLESS_CA_SECTION = 'Bless CA'
 CA_PRIVATE_KEY_FILE_OPTION = 'ca_private_key_file'
+CA_PRIVATE_KEY_OPTION = 'ca_private_key'
 
 REGION_PASSWORD_OPTION_SUFFIX = '_password'
 
@@ -100,6 +102,16 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
         :return: A list of kmsauth key ids
         """
         return map(str.strip, self.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION).split(','))
+
+    def getprivatekey(self):
+        if self.has_option(BLESS_CA_SECTION, CA_PRIVATE_KEY_OPTION):
+            return base64.b64decode(self.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_OPTION))
+
+        ca_private_key_file = self.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
+
+        # read the private key .pem
+        with open(os.path.join(os.path.dirname(__file__), ca_private_key_file), 'r') as f:
+            return f.read()
 
     def has_option(self, section, option):
         """
