@@ -81,14 +81,17 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
             self.add_section(KMSAUTH_SECTION)
 
         if not self.has_option(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX):
-            raise ValueError("No Region Specific Password Provided.")
+            if not self.has_option(BLESS_CA_SECTION, 'default' + REGION_PASSWORD_OPTION_SUFFIX):
+                raise ValueError("No Region Specific And No Default Password Provided.")
 
     def getpassword(self):
         """
         Returns the correct encrypted password based off of the aws_region.
         :return: A Base64 encoded KMS CiphertextBlob.
         """
-        return self.get(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX)
+        if self.has_option(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX):
+            return self.get(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX)
+        return self.get(BLESS_CA_SECTION, 'default' + REGION_PASSWORD_OPTION_SUFFIX)
 
     def getkmsauthkeyids(self):
         """

@@ -6,7 +6,7 @@ from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
     ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
     CERTIFICATE_VALIDITY_SEC_DEFAULT, ENTROPY_MINIMUM_BITS_DEFAULT, RANDOM_SEED_BYTES_DEFAULT, \
-    LOGGING_LEVEL_DEFAULT, LOGGING_LEVEL_OPTION, BLESS_CA_SECTION, \
+    LOGGING_LEVEL_DEFAULT, LOGGING_LEVEL_OPTION, BLESS_CA_SECTION, REGION_PASSWORD_OPTION_SUFFIX, \
     CA_PRIVATE_KEY_FILE_OPTION, KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION, KMSAUTH_KEY_ID_OPTION, \
     KMSAUTH_SERVICE_ID_OPTION, CERTIFICATE_EXTENSIONS_OPTION
 
@@ -20,7 +20,12 @@ def test_config_no_password():
     with pytest.raises(ValueError) as e:
         BlessConfig('bogus-region',
                     config_file=os.path.join(os.path.dirname(__file__), 'full.cfg'))
-    assert 'No Region Specific Password Provided.' == e.value.message
+    assert 'No Region Specific And No Default Password Provided.' == e.value.message
+
+    config = BlessConfig('bogus-region',
+                config_file=os.path.join(os.path.dirname(__file__), 'full-with-default.cfg'))
+    assert '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>' == config.getpassword()
+
 
 def test_config_environment_override(monkeypatch):
     extra_environment_variables = {
@@ -32,6 +37,7 @@ def test_config_environment_override(monkeypatch):
         'bless_options_certificate_extensions': 'permit-X11-forwarding',
 
         'bless_ca_us-east-1_password': '<INSERT_US-EAST-1_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
+        'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
         'bless_ca_ca_private_key_file': '<INSERT_YOUR_ENCRYPTED_PEM_FILE_NAME>',
 
         'kms_auth_use_kmsauth': 'True',
@@ -58,6 +64,9 @@ def test_config_environment_override(monkeypatch):
     assert config.getboolean(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION)
     assert '<INSERT_ARN>' == config.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION)
     assert 'bless-test' == config.get(KMSAUTH_SECTION, KMSAUTH_SERVICE_ID_OPTION)
+
+    config.aws_region = 'invalid'
+    assert '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>' == config.getpassword()
 
 
 @pytest.mark.parametrize(
