@@ -36,6 +36,7 @@ def test_config_environment_override(monkeypatch):
         'bless_options_random_seed_bytes': '3',
         'bless_options_logging_level': 'DEBUG',
         'bless_options_certificate_extensions': 'permit-X11-forwarding',
+        'bless_options_username_validation': 'debian',
 
         'bless_ca_us-east-1_password': '<INSERT_US-EAST-1_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
         'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
@@ -59,6 +60,7 @@ def test_config_environment_override(monkeypatch):
     assert 3 == config.getint(BLESS_OPTIONS_SECTION, RANDOM_SEED_BYTES_OPTION)
     assert 'DEBUG' == config.get(BLESS_OPTIONS_SECTION, LOGGING_LEVEL_OPTION)
     assert 'permit-X11-forwarding' == config.get(BLESS_OPTIONS_SECTION, CERTIFICATE_EXTENSIONS_OPTION)
+    assert 'debian' == config.get(BLESS_OPTIONS_SECTION, USERNAME_VALIDATION_OPTION)
 
     assert '<INSERT_US-EAST-1_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>' == config.getpassword()
     assert '<INSERT_YOUR_ENCRYPTED_PEM_FILE_NAME>' == config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
