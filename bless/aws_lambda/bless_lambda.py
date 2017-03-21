@@ -19,8 +19,6 @@ from bless.config.bless_config import BlessConfig, \
     CERTIFICATE_VALIDITY_AFTER_SEC_OPTION, \
     ENTROPY_MINIMUM_BITS_OPTION, \
     RANDOM_SEED_BYTES_OPTION, \
-    BLESS_CA_SECTION, \
-    CA_PRIVATE_KEY_FILE_OPTION, \
     LOGGING_LEVEL_OPTION, \
     KMSAUTH_SECTION, \
     KMSAUTH_USEKMSAUTH_OPTION, \
@@ -70,7 +68,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                                                        CERTIFICATE_VALIDITY_AFTER_SEC_OPTION)
     entropy_minimum_bits = config.getint(BLESS_OPTIONS_SECTION, ENTROPY_MINIMUM_BITS_OPTION)
     random_seed_bytes = config.getint(BLESS_OPTIONS_SECTION, RANDOM_SEED_BYTES_OPTION)
-    ca_private_key_file = config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
+    ca_private_key = config.getprivatekey()
     password_ciphertext_b64 = config.getpassword()
     certificate_extensions = config.get(BLESS_OPTIONS_SECTION, CERTIFICATE_EXTENSIONS_OPTION)
 
@@ -86,10 +84,6 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
         request.bastion_user_ip,
         request.public_key_to_sign,
         request.kmsauth_token))
-
-    # read the private key .pem
-    with open(os.path.join(os.path.dirname(__file__), ca_private_key_file), 'r') as f:
-        ca_private_key = f.read()
 
     # decrypt ca private key password
     if ca_private_key_password is None:

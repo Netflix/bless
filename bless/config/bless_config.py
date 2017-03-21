@@ -4,6 +4,8 @@
     :license: Apache, see LICENSE for more details.
 """
 import ConfigParser
+import base64
+import os
 
 BLESS_OPTIONS_SECTION = 'Bless Options'
 CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION = 'certificate_validity_before_seconds'
@@ -32,6 +34,7 @@ CERTIFICATE_EXTENSIONS_DEFAULT = 'permit-X11-forwarding,' \
 
 BLESS_CA_SECTION = 'Bless CA'
 CA_PRIVATE_KEY_FILE_OPTION = 'ca_private_key_file'
+CA_PRIVATE_KEY_OPTION = 'ca_private_key'
 
 REGION_PASSWORD_OPTION_SUFFIX = '_password'
 
@@ -46,7 +49,7 @@ KMSAUTH_SERVICE_ID_OPTION = 'kmsauth_serviceid'
 KMSAUTH_SERVICE_ID_DEFAULT = None
 
 
-class BlessConfig(ConfigParser.RawConfigParser):
+class BlessConfig(ConfigParser.RawConfigParser, object):
     def __init__(self, aws_region, config_file):
         """
         Parses the BLESS config file, and provides some reasonable default values if they are
@@ -80,14 +83,17 @@ class BlessConfig(ConfigParser.RawConfigParser):
             self.add_section(KMSAUTH_SECTION)
 
         if not self.has_option(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX):
-            raise ValueError("No Region Specific Password Provided.")
+            if not self.has_option(BLESS_CA_SECTION, 'default' + REGION_PASSWORD_OPTION_SUFFIX):
+                raise ValueError("No Region Specific And No Default Password Provided.")
 
     def getpassword(self):
         """
         Returns the correct encrypted password based off of the aws_region.
         :return: A Base64 encoded KMS CiphertextBlob.
         """
-        return self.get(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX)
+        if self.has_option(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX):
+            return self.get(BLESS_CA_SECTION, self.aws_region + REGION_PASSWORD_OPTION_SUFFIX)
+        return self.get(BLESS_CA_SECTION, 'default' + REGION_PASSWORD_OPTION_SUFFIX)
 
     def getkmsauthkeyids(self):
         """
@@ -96,3 +102,47 @@ class BlessConfig(ConfigParser.RawConfigParser):
         :return: A list of kmsauth key ids
         """
         return map(str.strip, self.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION).split(','))
+
+    def getprivatekey(self):
+        if self.has_option(BLESS_CA_SECTION, CA_PRIVATE_KEY_OPTION):
+            return base64.b64decode(self.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_OPTION))
+
+        ca_private_key_file = self.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
+
+        # read the private key .pem
+        with open(os.path.join(os.path.dirname(__file__), ca_private_key_file), 'r') as f:
+            return f.read()
+
+    def has_option(self, section, option):
+        """
+        Checks if an option exists.
+
+        This will search in both the environment variables and in the config file
+        :param section: The section to search in
+        :param option: The option to check
+        :return: True if it exists, False otherwise
+        """
+        environment_key = self._environment_key(section, option)
+        if environment_key in os.environ:
+            return True
+        else:
+            return super(BlessConfig, self).has_option(section, option)
+
+    def get(self, section, option):
+        """
+        Gets a value from the configuration.
+
+        Checks the environment  before looking in the config file.
+        :param section: The config section to look in
+        :param option: The config option to look at
+        :return: The value of the config option
+        """
+        environment_key = self._environment_key(section, option)
+        output = os.environ.get(environment_key, None)
+        if output is None:
+            output = super(BlessConfig, self).get(section, option)
+        return output
+
+    @staticmethod
+    def _environment_key(section, option):
+        return (section.replace(' ', '_') + '_' + option).lower()
