@@ -1,5 +1,5 @@
 import pytest
-from bless.request.bless_request import validate_ips, validate_user, validate_principals
+from bless.request.bless_request import validate_ips, validate_user, validate_principals, set_username_validation, USERNAME_VALIDATION_OPTIONS
 from marshmallow import ValidationError
 
 
@@ -46,6 +46,74 @@ def test_validate_user_contains_junk(test_input):
 def test_validate_user(test_input):
     validate_user(test_input)
 
+
+def test_validate_user_debian_too_long(monkeypatch):
+    monkeypatch.setattr('bless.request.bless_request.username_validation', USERNAME_VALIDATION_OPTIONS.debian)
+    with pytest.raises(ValidationError) as e:
+        validate_user('a33characterusernameyoumustbenuts')
+    assert e.value.message == 'Username is too long.'
+
+
+@pytest.mark.parametrize("test_input", [
+    ('~userinvalid'),
+    ('-userinvalid'),
+    ('+userinvalid'),
+    ('user:invalid'),
+    ('user,invalid'),
+    ('user invalid'),
+    ('user\tinvalid'),
+    ('user\ninvalid'),
+])
+def test_validate_user_debian_invalid(test_input, monkeypatch):
+    monkeypatch.setattr('bless.request.bless_request.username_validation', USERNAME_VALIDATION_OPTIONS.debian)
+    with pytest.raises(ValidationError) as e:
+        validate_user(test_input)
+    assert e.value.message == 'Username contains invalid characters.'
+
+
+@pytest.mark.parametrize("test_input", [
+    ('uservalid'),
+    ('a32characterusernameyoumustok$'),
+    ('_uservalid$'),
+    ('abc123_-valid'),
+    ('user~valid'),
+    ('user-valid'),
+    ('user+valid'),
+])
+def test_validate_user_debian(test_input, monkeypatch):
+    monkeypatch.setattr('bless.request.bless_request.username_validation', USERNAME_VALIDATION_OPTIONS.debian)
+    validate_user(test_input)
+
+
+def test_validate_user_relaxed_too_long(monkeypatch):
+    monkeypatch.setattr('bless.request.bless_request.username_validation', USERNAME_VALIDATION_OPTIONS.relaxed)
+    with pytest.raises(ValidationError) as e:
+        validate_user('a33characterusernameyoumustbenuts')
+    assert e.value.message == 'Username is too long.'
+
+
+@pytest.mark.parametrize("test_input", [
+    ('uservalid'),
+    ('a32characterusernameyoumustok$'),
+    ('_uservalid$'),
+    ('abc123_-valid'),
+    ('user~valid'),
+    ('user-valid'),
+    ('user+valid'),
+    ('~uservalid'),
+    ('-uservalid'),
+    ('+uservalid'),
+    ('user:valid'),
+    ('user,valid'),
+    ('user valid'),
+    ('user\tvalid'),
+    ('user\nvalid'),
+])
+def test_validate_user_relaxed(test_input, monkeypatch):
+    monkeypatch.setattr('bless.request.bless_request.username_validation', USERNAME_VALIDATION_OPTIONS.relaxed)
+    validate_user(test_input)
+
+
 @pytest.mark.parametrize("test_input", [
     ('uservalid'),
     ('uservalid,uservalid2'),
@@ -64,3 +132,16 @@ def test_validate_multiple_principals(test_input):
     with pytest.raises(ValidationError) as e:
         validate_principals(test_input)
     assert e.value.message == 'Principal contains invalid characters.'
+
+
+def test_set_username_validation_invalid():
+    with pytest.raises(KeyError) as e:
+        set_username_validation('random')
+
+@pytest.mark.parametrize("test_input", [
+    ('useradd'),
+    ('debian'),
+    ('relaxed'),
+])
+def test_set_username_validation(test_input):
+    set_username_validation(test_input)

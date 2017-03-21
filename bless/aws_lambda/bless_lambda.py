@@ -22,12 +22,13 @@ from bless.config.bless_config import BlessConfig, \
     BLESS_CA_SECTION, \
     CA_PRIVATE_KEY_FILE_OPTION, \
     LOGGING_LEVEL_OPTION, \
+    USERNAME_VALIDATION_OPTION, \
     KMSAUTH_SECTION, \
     KMSAUTH_USEKMSAUTH_OPTION, \
     KMSAUTH_SERVICE_ID_OPTION, \
     TEST_USER_OPTION, \
     CERTIFICATE_EXTENSIONS_OPTION
-from bless.request.bless_request import BlessSchema
+from bless.request.bless_request import BlessSchema, set_username_validation
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
 from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
@@ -73,6 +74,8 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     ca_private_key_file = config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
     password_ciphertext_b64 = config.getpassword()
     certificate_extensions = config.get(BLESS_OPTIONS_SECTION, CERTIFICATE_EXTENSIONS_OPTION)
+
+    set_username_validation(config.get(BLESS_OPTIONS_SECTION, USERNAME_VALIDATION_OPTION))
 
     # Process cert request
     schema = BlessSchema(strict=True)

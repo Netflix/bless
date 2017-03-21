@@ -3,6 +3,7 @@
     :copyright: (c) 2016 by Netflix Inc., see AUTHORS for more
     :license: Apache, see LICENSE for more details.
 """
+from enum import Enum
 import re
 
 import ipaddress
@@ -10,10 +11,29 @@ from marshmallow import Schema, fields, post_load, ValidationError, validates_sc
 
 # man 8 useradd
 USERNAME_PATTERN = re.compile('[a-z_][a-z0-9_-]*[$]?\Z')
+
+# debian
+# On Debian, the only constraints are that usernames must neither start
+# with a dash ('-') nor plus ('+') nor tilde ('~') nor contain a colon
+# (':'), a comma (','), or a whitespace (space: ' ', end of line: '\n',
+# tabulation: '\t', etc.). Note that using a slash ('/') may break the
+# default algorithm for the definition of the user's home directory.
+USERNAME_PATTERN_DEBIAN = re.compile('\A[^-+~][^:,\s]*\Z')
+
 # It appears that most printable ascii is valid, excluding whitespace, #, and commas.
 # There doesn't seem to be any practical size limits of a principal (> 4096B allowed).
 PRINCIPAL_PATTERN = re.compile(r'[\d\w!"$%&\'()*+\-./:;<=>?@\[\\\]\^`{|}~]+\Z')
 VALID_SSH_RSA_PUBLIC_KEY_HEADER = "ssh-rsa AAAAB3NzaC1yc2"
+
+USERNAME_VALIDATION_OPTIONS = Enum('UserNameValidationOptions',
+                                   'useradd debian relaxed')
+
+username_validation = USERNAME_VALIDATION_OPTIONS.useradd
+
+
+def set_username_validation(value):
+    global username_validation
+    username_validation = USERNAME_VALIDATION_OPTIONS[value]
 
 
 def validate_ips(ips):
@@ -27,7 +47,21 @@ def validate_ips(ips):
 def validate_user(user):
     if len(user) > 32:
         raise ValidationError('Username is too long.')
+    if username_validation == USERNAME_VALIDATION_OPTIONS.relaxed:
+        return
+    if username_validation == USERNAME_VALIDATION_OPTIONS.debian:
+        _validate_user_debian(user)
+    else:
+        _validate_user_useradd(user)
+
+
+def _validate_user_useradd(user):
     if USERNAME_PATTERN.match(user) is None:
+        raise ValidationError('Username contains invalid characters.')
+
+
+def _validate_user_debian(user):
+    if USERNAME_PATTERN_DEBIAN.match(user) is None:
         raise ValidationError('Username contains invalid characters.')
 
 
