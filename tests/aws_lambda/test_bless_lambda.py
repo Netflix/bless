@@ -104,6 +104,15 @@ INVALID_TEST_REQUEST_MULTIPLE_PRINCIPALS = {
     "bastion_user_ip": "127.0.0.1"
 }
 
+INVALID_TEST_REQUEST_USERNAME_INVALID = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "~@.",
+    "bastion_user_ip": "127.0.0.1"
+}
+
 os.environ['AWS_REGION'] = 'us-west-2'
 
 
@@ -147,6 +156,15 @@ def test_basic_local_username_validation_disabled():
                             config_file=os.path.join(os.path.dirname(__file__),
                                                      'bless-test-username-validation-disabled.cfg'))
     assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_invalid_username_request():
+    output = lambda_handler(INVALID_TEST_REQUEST_USERNAME_INVALID, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test.cfg'))
+    assert output['errorType'] == 'InputValidationError'
 
 
 def test_invalid_kmsauth_request():

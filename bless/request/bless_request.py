@@ -28,13 +28,6 @@ VALID_SSH_RSA_PUBLIC_KEY_HEADER = "ssh-rsa AAAAB3NzaC1yc2"
 USERNAME_VALIDATION_OPTIONS = Enum('UserNameValidationOptions',
                                    'useradd debian relaxed disabled')
 
-username_validation = USERNAME_VALIDATION_OPTIONS.useradd
-
-
-def set_username_validation(value):
-    global username_validation
-    username_validation = USERNAME_VALIDATION_OPTIONS[value]
-
 
 def validate_ips(ips):
     try:
@@ -44,7 +37,7 @@ def validate_ips(ips):
         raise ValidationError('Invalid IP address.')
 
 
-def validate_user(user):
+def validate_user(user, username_validation):
     if username_validation == USERNAME_VALIDATION_OPTIONS.disabled:
         return
     if len(user) > 32:
@@ -83,7 +76,7 @@ def validate_ssh_public_key(public_key):
 
 class BlessSchema(Schema):
     bastion_ips = fields.Str(validate=validate_ips, required=True)
-    bastion_user = fields.Str(validate=validate_user, required=True)
+    bastion_user = fields.Str(required=True)
     bastion_user_ip = fields.Str(validate=validate_ips, required=True)
     command = fields.Str(required=True)
     public_key_to_sign = fields.Str(validate=validate_ssh_public_key, required=True)
@@ -95,6 +88,11 @@ class BlessSchema(Schema):
         unknown = set(original_data) - set(self.fields)
         if unknown:
             raise ValidationError('Unknown field', unknown)
+
+    @validates_schema
+    def validate_user(self, data):
+        username_validation = USERNAME_VALIDATION_OPTIONS[self.context['username_validation']]
+        validate_user(data['bastion_user'], username_validation)
 
     @post_load
     def make_bless_request(self, data):
