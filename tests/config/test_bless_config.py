@@ -37,7 +37,7 @@ def test_config_environment_override(monkeypatch):
         'bless_options_logging_level': 'DEBUG',
         'bless_options_certificate_extensions': 'permit-X11-forwarding',
 
-        'bless_ca_us-east-1_password': '<INSERT_US-EAST-1_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
+        'bless_ca_us_east_1_password': '<INSERT_US-EAST-1_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
         'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
         'bless_ca_ca_private_key_file': '<INSERT_YOUR_ENCRYPTED_PEM_FILE_NAME>',
         'bless_ca_ca_private_key': base64.b64encode('<INSERT_YOUR_ENCRYPTED_PEM_FILE_CONTENT>'),
