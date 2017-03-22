@@ -22,6 +22,7 @@ setup(
         'botocore',
         'cffi',
         'cryptography',
+        'enum34',
         'ipaddress',
         'marshmallow',
         'kmsauth'

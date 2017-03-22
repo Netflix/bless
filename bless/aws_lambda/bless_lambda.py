@@ -25,7 +25,8 @@ from bless.config.bless_config import BlessConfig, \
     KMSAUTH_USEKMSAUTH_OPTION, \
     KMSAUTH_SERVICE_ID_OPTION, \
     TEST_USER_OPTION, \
-    CERTIFICATE_EXTENSIONS_OPTION
+    CERTIFICATE_EXTENSIONS_OPTION, \
+    REMOTE_USERNAMES_VALIDATION_OPTION
 from bless.request.bless_request import BlessSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
@@ -75,7 +76,9 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
 
     # Process cert request
     schema = BlessSchema(strict=True)
-    schema.context['username_validation'] = config.get(BLESS_OPTIONS_SECTION, USERNAME_VALIDATION_OPTION)
+    schema.context[USERNAME_VALIDATION_OPTION] = config.get(BLESS_OPTIONS_SECTION, USERNAME_VALIDATION_OPTION)
+    schema.context[REMOTE_USERNAMES_VALIDATION_OPTION] = config.get(BLESS_OPTIONS_SECTION,
+                                                                    REMOTE_USERNAMES_VALIDATION_OPTION)
 
     try:
         request = schema.load(event).data
@@ -117,8 +120,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     # cert values determined only by lambda and its configs
     current_time = int(time.time())
     test_user = config.get(BLESS_OPTIONS_SECTION, TEST_USER_OPTION)
-    if (test_user and (request.bastion_user == test_user or
-            request.remote_usernames == test_user)):
+    if test_user and (request.bastion_user == test_user or request.remote_usernames == test_user):
         # This is a test call, the lambda will issue an invalid
         # certificate where valid_before < valid_after
         valid_before = current_time

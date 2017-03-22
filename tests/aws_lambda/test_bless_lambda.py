@@ -1,4 +1,3 @@
-import json
 import os
 
 import pytest
@@ -22,17 +21,17 @@ VALID_TEST_REQUEST = {
     "bastion_user_ip": "127.0.0.1"
 }
 
-VALID_TEST_REQUEST_USERNAME_VALIDATION_RELAXED = {
-    "remote_usernames": "user",
+VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD = {
+    "remote_usernames": "user,anotheruser",
     "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
     "command": "ssh user@server",
     "bastion_ips": "127.0.0.1",
-    "bastion_user": "~+:,/relaxeduser",
+    "bastion_user": "someone@example.com",
     "bastion_user_ip": "127.0.0.1"
 }
 
 VALID_TEST_REQUEST_USERNAME_VALIDATION_DISABLED = {
-    "remote_usernames": "user",
+    "remote_usernames": "'~:, \n\t@'",
     "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
     "command": "ssh user@server",
     "bastion_ips": "127.0.0.1",
@@ -141,20 +140,39 @@ def test_basic_local_missing_kmsauth_request():
     assert output['errorType'] == 'InputValidationError'
 
 
-def test_basic_local_username_validation_relaxed():
-    output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_RELAXED, context=Context,
-                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
-                            entropy_check=False,
-                            config_file=os.path.join(os.path.dirname(__file__),
-                                                     'bless-test-username-validation-relaxed.cfg'))
+def test_basic_local_username_validation_disabled(monkeypatch):
+    extra_environment_variables = {
+        'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
+        'bless_ca_ca_private_key_file': '../../tests/aws_lambda/only-use-for-unit-tests.pem',
+        'bless_options_username_validation': 'disabled',
+        'bless_options_remote_usernames_validation': 'disabled',
+    }
 
+    for k, v in extra_environment_variables.items():
+        monkeypatch.setenv(k, v)
 
-def test_basic_local_username_validation_disabled():
     output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_DISABLED, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
-                            config_file=os.path.join(os.path.dirname(__file__),
-                                                     'bless-test-username-validation-disabled.cfg'))
+                            config_file=os.path.join(os.path.dirname(__file__), ''))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_basic_local_username_validation_email_remote_usernames_useradd(monkeypatch):
+    extra_environment_variables = {
+        'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
+        'bless_ca_ca_private_key_file': '../../tests/aws_lambda/only-use-for-unit-tests.pem',
+        'bless_options_username_validation': 'email',
+        'bless_options_remote_usernames_validation': 'useradd',
+    }
+
+    for k, v in extra_environment_variables.items():
+        monkeypatch.setenv(k, v)
+
+    output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), ''))
     assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
 
 
