@@ -6,6 +6,7 @@
 import ConfigParser
 import base64
 import os
+import re
 
 BLESS_OPTIONS_SECTION = 'Bless Options'
 CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION = 'certificate_validity_before_seconds'
@@ -145,4 +146,4 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
 
     @staticmethod
     def _environment_key(section, option):
-        return (section.replace(' ', '_') + '_' + option).lower()
+        return (re.sub('\W+', '_', section) + '_' + re.sub('\W+', '_', option)).lower()
