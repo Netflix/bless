@@ -110,7 +110,7 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
         ca_private_key_file = self.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
 
         # read the private key .pem
-        with open(os.path.join(os.path.dirname(__file__), ca_private_key_file), 'r') as f:
+        with open(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, ca_private_key_file), 'r') as f:
             return f.read()
 
     def has_option(self, section, option):
