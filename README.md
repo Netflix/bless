@@ -2,10 +2,10 @@
 # BLESS - Bastion's Lambda Ephemeral SSH Service
 [![Build Status](https://travis-ci.org/Netflix/bless.svg?branch=master)](https://travis-ci.org/Netflix/bless) [![Test coverage](https://coveralls.io/repos/github/Netflix/bless/badge.svg?branch=master)](https://coveralls.io/github/Netflix/bless) [![Join the chat at https://gitter.im/Netflix/bless](https://badges.gitter.im/Netflix/bless.svg)](https://gitter.im/Netflix/bless?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![NetflixOSS Lifecycle](https://img.shields.io/osslifecycle/Netflix/bless.svg)]()
 
-BLESS is an SSH Certificate Authority that runs as a AWS Lambda function and is used to sign ssh
+BLESS is an SSH Certificate Authority that runs as an AWS Lambda function and is used to sign SSH
 public keys.
 
-SSH Certificates are an excellent way to authorize users to access a particular ssh host,
+SSH Certificates are an excellent way to authorize users to access a particular SSH host,
 as they can be restricted for a single use case, and can be short lived.  Instead of managing the
 authorized_keys of a host, or controlling who has access to SSH Private Keys, hosts just
 need to be configured to trust an SSH CA.
