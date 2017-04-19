@@ -6,14 +6,36 @@
 import re
 
 import ipaddress
+from enum import Enum
 from marshmallow import Schema, fields, post_load, ValidationError, validates_schema
+from marshmallow import validates
+from marshmallow.validate import Email
+
+from bless.config.bless_config import USERNAME_VALIDATION_OPTION, REMOTE_USERNAMES_VALIDATION_OPTION, \
+    USERNAME_VALIDATION_DEFAULT, REMOTE_USERNAMES_VALIDATION_DEFAULT
 
 # man 8 useradd
 USERNAME_PATTERN = re.compile('[a-z_][a-z0-9_-]*[$]?\Z')
+
+# debian
+# On Debian, the only constraints are that usernames must neither start
+# with a dash ('-') nor plus ('+') nor tilde ('~') nor contain a colon
+# (':'), a comma (','), or a whitespace (space: ' ', end of line: '\n',
+# tabulation: '\t', etc.). Note that using a slash ('/') may break the
+# default algorithm for the definition of the user's home directory.
+USERNAME_PATTERN_DEBIAN = re.compile('\A[^-+~][^:,\s]*\Z')
+
 # It appears that most printable ascii is valid, excluding whitespace, #, and commas.
-# There doesn't seem to be any practical size limits of a principal (> 4096B allowed).
+# There doesn't seem to be any practical size limits of an SSH Certificate Principal (> 4096B allowed).
 PRINCIPAL_PATTERN = re.compile(r'[\d\w!"$%&\'()*+\-./:;<=>?@\[\\\]\^`{|}~]+\Z')
 VALID_SSH_RSA_PUBLIC_KEY_HEADER = "ssh-rsa AAAAB3NzaC1yc2"
+
+USERNAME_VALIDATION_OPTIONS = Enum('UserNameValidationOptions',
+                                   'useradd '  # Allowable usernames per 'man 8 useradd'
+                                   'debian '  # Allowable usernames on debian systems.
+                                   'email '  # username is a valid email address.
+                                   'principal '  # SSH Certificate Principal.  See 'man 5 sshd_con#  fig'.
+                                   'disabled')  # no additional validation of the string.
 
 
 def validate_ips(ips):
@@ -24,17 +46,36 @@ def validate_ips(ips):
         raise ValidationError('Invalid IP address.')
 
 
-def validate_user(user):
-    if len(user) > 32:
+def validate_user(user, username_validation):
+    if username_validation == USERNAME_VALIDATION_OPTIONS.disabled:
+        return
+    elif username_validation == USERNAME_VALIDATION_OPTIONS.email:
+        Email('Invalid email address.').__call__(user)
+    elif username_validation == USERNAME_VALIDATION_OPTIONS.principal:
+        _validate_principal(user)
+    elif len(user) > 32:
         raise ValidationError('Username is too long.')
+    elif username_validation == USERNAME_VALIDATION_OPTIONS.useradd:
+        _validate_user_useradd(user)
+    elif username_validation == USERNAME_VALIDATION_OPTIONS.debian:
+        _validate_user_debian(user)
+    else:
+        raise ValidationError('Invalid username validator.')
+
+
+def _validate_user_useradd(user):
     if USERNAME_PATTERN.match(user) is None:
         raise ValidationError('Username contains invalid characters.')
 
 
-def validate_principals(principals):
-    for principal in principals.split(','):
-        if PRINCIPAL_PATTERN.match(principal) is None:
-            raise ValidationError('Principal contains invalid characters.')
+def _validate_user_debian(user):
+    if USERNAME_PATTERN_DEBIAN.match(user) is None:
+        raise ValidationError('Username contains invalid characters.')
+
+
+def _validate_principal(principal):
+    if PRINCIPAL_PATTERN.match(principal) is None:
+        raise ValidationError('Principal contains invalid characters.')
 
 
 def validate_ssh_public_key(public_key):
@@ -47,11 +88,11 @@ def validate_ssh_public_key(public_key):
 
 class BlessSchema(Schema):
     bastion_ips = fields.Str(validate=validate_ips, required=True)
-    bastion_user = fields.Str(validate=validate_user, required=True)
+    bastion_user = fields.Str(required=True)
     bastion_user_ip = fields.Str(validate=validate_ips, required=True)
     command = fields.Str(required=True)
     public_key_to_sign = fields.Str(validate=validate_ssh_public_key, required=True)
-    remote_usernames = fields.Str(validate=validate_principals, required=True)
+    remote_usernames = fields.Str(required=True)
     kmsauth_token = fields.Str(required=False)
 
     @validates_schema(pass_original=True)
@@ -63,6 +104,23 @@ class BlessSchema(Schema):
     @post_load
     def make_bless_request(self, data):
         return BlessRequest(**data)
+
+    @validates('bastion_user')
+    def validate_bastion_user(self, user):
+        if USERNAME_VALIDATION_OPTION in self.context:
+            username_validation = USERNAME_VALIDATION_OPTIONS[self.context[USERNAME_VALIDATION_OPTION]]
+        else:
+            username_validation = USERNAME_VALIDATION_OPTIONS[USERNAME_VALIDATION_DEFAULT]
+        validate_user(user, username_validation)
+
+    @validates('remote_usernames')
+    def validate_remote_usernames(self, remote_usernames):
+        if REMOTE_USERNAMES_VALIDATION_OPTION in self.context:
+            username_validation = USERNAME_VALIDATION_OPTIONS[self.context[REMOTE_USERNAMES_VALIDATION_OPTION]]
+        else:
+            username_validation = USERNAME_VALIDATION_OPTIONS[REMOTE_USERNAMES_VALIDATION_DEFAULT]
+        for remote_username in remote_usernames.split(','):
+            validate_user(remote_username, username_validation)
 
 
 class BlessRequest:
