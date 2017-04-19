@@ -143,7 +143,7 @@ def test_basic_local_missing_kmsauth_request():
 def test_basic_local_username_validation_disabled(monkeypatch):
     extra_environment_variables = {
         'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
-        'bless_ca_ca_private_key_file': '../../tests/aws_lambda/only-use-for-unit-tests.pem',
+        'bless_ca_ca_private_key_file': 'tests/aws_lambda/only-use-for-unit-tests.pem',
         'bless_options_username_validation': 'disabled',
         'bless_options_remote_usernames_validation': 'disabled',
     }
@@ -161,7 +161,7 @@ def test_basic_local_username_validation_disabled(monkeypatch):
 def test_basic_local_username_validation_email_remote_usernames_useradd(monkeypatch):
     extra_environment_variables = {
         'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
-        'bless_ca_ca_private_key_file': '../../tests/aws_lambda/only-use-for-unit-tests.pem',
+        'bless_ca_ca_private_key_file': 'tests/aws_lambda/only-use-for-unit-tests.pem',
         'bless_options_username_validation': 'email',
         'bless_options_remote_usernames_validation': 'useradd',
     }
