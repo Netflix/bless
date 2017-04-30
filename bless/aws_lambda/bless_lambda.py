@@ -143,7 +143,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                 )
                 # decrypt_token will raise a TokenValidationError if token doesn't match
                 validator.decrypt_token(
-                    "2/user/{}".format(request.remote_usernames),
+                    "2/user/{}".format(request.bastion_user),
                     request.kmsauth_token
                 )
             except TokenValidationError as e:
