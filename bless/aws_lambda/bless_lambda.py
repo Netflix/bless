@@ -138,8 +138,9 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
             # Allow bless to sign the cert for a different remote user than the name of the user who signed it
             allowed_remotes = config.get(KMSAUTH_SECTION, KMSAUTH_REMOTE_USERNAMES_ALLOWED_OPTION)
             if allowed_remotes:
-                allowed_users = allowed_remotes.split(",")
-                if allowed_users != ['*'] and request.remote_usernames not in allowed_users:
+                allowed_users = allowed_remotes.split(',')
+                requested_remotes = request.remote_usernames.split(',')
+                if allowed_users != ['*'] and not all([u in allowed_users for u in requested_remotes]):
                     return error_response('KMSAuthValidationError',
                                           'unallowed remote_usernames [{}]'.format(request.remote_usernames))
             elif request.remote_usernames != request.bastion_user:
