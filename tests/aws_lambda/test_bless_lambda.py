@@ -122,8 +122,8 @@ INVALID_TEST_KMSAUTH_REQUEST_USERNAME_DOESNT_MATCH_REMOTE = {
     "kmsauth_token": "validkmsauthtoken"
 }
 
-VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER = {
-    "remote_usernames": "ubuntu",
+INVALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER = {
+    "remote_usernames": "root",
     "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
     "command": "ssh user@server",
     "bastion_ips": "127.0.0.1",
@@ -131,7 +131,6 @@ VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER = {
     "bastion_user_ip": "127.0.0.1",
     "kmsauth_token": "validkmsauthtoken"
 }
-
 
 os.environ['AWS_REGION'] = 'us-west-2'
 
@@ -306,6 +305,7 @@ def test_invalid_request_with_multiple_principals():
                                                      'bless-test.cfg'))
     assert output['errorType'] == 'InputValidationError'
 
+
 def test_invalid_request_with_mismatched_bastion_and_remote():
     output = lambda_handler(INVALID_TEST_KMSAUTH_REQUEST_USERNAME_DOESNT_MATCH_REMOTE, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
@@ -314,8 +314,9 @@ def test_invalid_request_with_mismatched_bastion_and_remote():
                                                      'bless-test-kmsauth.cfg'))
     assert output['errorType'] == 'KMSAuthValidationError'
 
-def test_valid_request_with_allowed_remote():
-    output = lambda_handler(VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
+
+def test_invalid_request_with_unallowed_remote():
+    output = lambda_handler(INVALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
