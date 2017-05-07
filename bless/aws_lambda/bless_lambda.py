@@ -136,11 +136,12 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     if config.get(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION):
         if request.kmsauth_token:
             # Allow bless to sign the cert for a different remote user than the name of the user who signed it
-            if KMSAUTH_REMOTE_USERNAMES_ALLOWED_OPTION:
-                allowed_users = KMSAUTH_REMOTE_USERNAMES_ALLOWED_OPTION.split(",")
-                if allowed_users != '*' and request.remote_usernames not in allowed_users:
+            allowed_remotes = config.get(KMSAUTH_SECTION, KMSAUTH_REMOTE_USERNAMES_ALLOWED_OPTION)
+            if allowed_remotes:
+                allowed_users = allowed_remotes.split(",")
+                if allowed_users != ['*'] and request.remote_usernames not in allowed_users:
                     return error_response('KMSAuthValidationError',
-                                          'invalid remote_usernames [{}]'.format(request.remote_usernames))
+                                          'unallowed remote_usernames [{}]'.format(request.remote_usernames))
             elif request.remote_usernames != request.bastion_user:
                     return error_response('KMSAuthValidationError',
                                           'remote_usernames must be the same as bastion_user')
