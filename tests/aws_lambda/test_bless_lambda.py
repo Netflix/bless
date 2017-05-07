@@ -132,6 +132,16 @@ INVALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER = {
     "kmsauth_token": "validkmsauthtoken"
 }
 
+VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER = {
+    "remote_usernames": "alloweduser",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "usera",
+    "bastion_user_ip": "127.0.0.1",
+    "kmsauth_token": "validkmsauthtoken"
+}
+
 os.environ['AWS_REGION'] = 'us-west-2'
 
 
@@ -307,6 +317,10 @@ def test_invalid_request_with_multiple_principals():
 
 
 def test_invalid_request_with_mismatched_bastion_and_remote():
+    '''
+    Test default kmsauth behavior, that a bastion_user and remote_usernames must match
+    :return: 
+    '''
     output = lambda_handler(INVALID_TEST_KMSAUTH_REQUEST_USERNAME_DOESNT_MATCH_REMOTE, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
@@ -322,3 +336,13 @@ def test_invalid_request_with_unallowed_remote():
                             config_file=os.path.join(os.path.dirname(__file__),
                                                      'bless-test-kmsauth-different-remote.cfg'))
     assert output['errorType'] == 'KMSAuthValidationError'
+
+
+def test_valid_request_with_allowed_remote(mocker):
+    mocker.patch("kmsauth.KMSTokenValidator.decrypt_token")
+    output = lambda_handler(VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-kmsauth-different-remote.cfg'))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
