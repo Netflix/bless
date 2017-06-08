@@ -32,7 +32,8 @@ setup(
             'coverage',
             'flake8',
             'pyflakes',
-            'pytest'
+            'pytest',
+            'pytest-mock'
         ]
     }
 )
