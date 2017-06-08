@@ -232,8 +232,8 @@ class SSHCertificateBuilder(object):
 
         if not self.public_key_comment:
             self.public_key_comment = \
-                'Certificate type:{} principals:{} with the id:[{}]'.format(
-                    self.cert_type, self.valid_principals, self.key_id)
+                'Certificate type[{}] principals[{}] with the id[{}]'.format(
+                    self.cert_type, ','.join(self.valid_principals), self.key_id)
 
     def _validate_cert_properties(self):
         if self.valid_after >= self.valid_before:
