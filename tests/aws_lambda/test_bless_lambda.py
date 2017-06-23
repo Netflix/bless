@@ -346,3 +346,30 @@ def test_valid_request_with_allowed_remote(mocker):
                             config_file=os.path.join(os.path.dirname(__file__),
                                                      'bless-test-kmsauth-different-remote.cfg'))
     assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+def test_valid_request_with_allowed_remote_and_allowed_iam_group(mocker):
+    mocker.patch("kmsauth.KMSTokenValidator.decrypt_token")
+    clientmock = mocker.MagicMock()
+    clientmock.list_groups_for_user.return_value = {"Groups":[{"GroupName":"ssh-alloweduser"}]}
+    botomock = mocker.patch('boto3.client')
+    botomock.return_value = clientmock
+    output = lambda_handler(VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-kmsauth-iam-group-validation.cfg'))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_invalid_request_with_allowed_remote_and_not_allowed_iam_group(mocker):
+    mocker.patch("kmsauth.KMSTokenValidator.decrypt_token")
+    clientmock = mocker.MagicMock()
+    clientmock.list_groups_for_user.return_value = {"Groups": [{"GroupName": "ssh-notalloweduser"}]}
+    botomock = mocker.patch('boto3.client')
+    botomock.return_value = clientmock
+    output = lambda_handler(VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-kmsauth-iam-group-validation.cfg'))
+    assert output['errorType'] == 'KMSAuthValidationError'

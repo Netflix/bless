@@ -24,10 +24,12 @@ from bless.config.bless_config import BlessConfig, \
     KMSAUTH_SECTION, \
     KMSAUTH_USEKMSAUTH_OPTION, \
     KMSAUTH_REMOTE_USERNAMES_ALLOWED_OPTION, \
+    VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION, \
     KMSAUTH_SERVICE_ID_OPTION, \
     TEST_USER_OPTION, \
     CERTIFICATE_EXTENSIONS_OPTION, \
-    REMOTE_USERNAMES_VALIDATION_OPTION
+    REMOTE_USERNAMES_VALIDATION_OPTION, \
+    IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION
 from bless.request.bless_request import BlessSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
@@ -143,6 +145,27 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                 if allowed_users != ['*'] and not all([u in allowed_users for u in requested_remotes]):
                     return error_response('KMSAuthValidationError',
                                           'unallowed remote_usernames [{}]'.format(request.remote_usernames))
+
+                # Check if the user is in the required IAM groups
+                if config.get(KMSAUTH_SECTION, VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION):
+                    iam = boto3.client('iam')
+                    user_groups = iam.list_groups_for_user(UserName=request.bastion_user)
+
+                    group_name_template = config.get(KMSAUTH_SECTION, IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION)
+                    for requested_remote in requested_remotes:
+                        required_group_name = group_name_template.format(requested_remote)
+
+                        user_is_in_group = any(
+                            group
+                            for group in user_groups['Groups']
+                            if group['GroupName'] == required_group_name
+                        )
+
+                        if not user_is_in_group:
+                            return error_response('KMSAuthValidationError',
+                                                  'user {} is not in the {} iam group'.format(request.bastion_user,
+                                                                                              required_group_name))
+
             elif request.remote_usernames != request.bastion_user:
                     return error_response('KMSAuthValidationError',
                                           'remote_usernames must be the same as bastion_user')
