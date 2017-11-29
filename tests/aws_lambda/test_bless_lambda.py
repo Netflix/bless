@@ -206,6 +206,64 @@ def test_basic_local_username_validation_email_remote_usernames_useradd(monkeypa
     assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
 
 
+def test_basic_local_username_validation_email_remote_usernames_useradd_zlib_zlib(monkeypatch):
+    extra_environment_variables = {
+        'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
+        'bless_ca_ca_private_key_file': 'tests/aws_lambda/only-use-for-unit-tests.zlib',
+        'bless_ca_ca_private_key_compression': 'zlib',
+        'bless_options_username_validation': 'email',
+        'bless_options_remote_usernames_validation': 'useradd',
+    }
+
+    for k, v in extra_environment_variables.items():
+        monkeypatch.setenv(k, v)
+
+    output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), ''))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+def test_basic_local_username_validation_email_remote_usernames_useradd_zlib_none(monkeypatch):
+    extra_environment_variables = {
+        'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
+        'bless_ca_ca_private_key_file': 'tests/aws_lambda/only-use-for-unit-tests.zlib',
+        'bless_ca_ca_private_key_compression': 'none',
+        'bless_options_username_validation': 'email',
+        'bless_options_remote_usernames_validation': 'useradd',
+    }
+
+    for k, v in extra_environment_variables.items():
+        monkeypatch.setenv(k, v)
+
+    with pytest.raises(TypeError) as e:
+        lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+                                ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                                entropy_check=False,
+                                config_file=os.path.join(os.path.dirname(__file__), ''))
+
+    assert 'Unsupported CA Private Key Type' == e.value.message
+
+def test_basic_local_username_validation_email_remote_usernames_useradd_none_zlib(monkeypatch):
+    extra_environment_variables = {
+        'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
+        'bless_ca_ca_private_key_file': 'tests/aws_lambda/only-use-for-unit-tests.pem',
+        'bless_ca_ca_private_key_compression': 'zlib',
+        'bless_options_username_validation': 'email',
+        'bless_options_remote_usernames_validation': 'useradd',
+    }
+
+    for k, v in extra_environment_variables.items():
+        monkeypatch.setenv(k, v)
+
+    with pytest.raises(ValueError) as e:
+        lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+                                ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                                entropy_check=False,
+                                config_file=os.path.join(os.path.dirname(__file__), ''))
+
+    assert 'Wrong compression zlib for private key.' == e.value.message
+
 def test_invalid_username_request():
     output = lambda_handler(INVALID_TEST_REQUEST_USERNAME_INVALID, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,

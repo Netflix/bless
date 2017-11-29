@@ -7,6 +7,7 @@ import ConfigParser
 import base64
 import os
 import re
+import zlib
 
 BLESS_OPTIONS_SECTION = 'Bless Options'
 CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION = 'certificate_validity_before_seconds'
@@ -36,6 +37,8 @@ CERTIFICATE_EXTENSIONS_DEFAULT = 'permit-X11-forwarding,' \
 BLESS_CA_SECTION = 'Bless CA'
 CA_PRIVATE_KEY_FILE_OPTION = 'ca_private_key_file'
 CA_PRIVATE_KEY_OPTION = 'ca_private_key'
+CA_PRIVATE_KEY_COMPRESSION_OPTION = 'ca_private_key_compression'
+CA_PRIVATE_KEY_COMPRESSION_OPTION_DEFAULT = None
 
 REGION_PASSWORD_OPTION_SUFFIX = '_password'
 
@@ -84,7 +87,8 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
                     KMSAUTH_USEKMSAUTH_OPTION: KMSAUTH_USEKMSAUTH_DEFAULT,
                     CERTIFICATE_EXTENSIONS_OPTION: CERTIFICATE_EXTENSIONS_DEFAULT,
                     USERNAME_VALIDATION_OPTION: USERNAME_VALIDATION_DEFAULT,
-                    REMOTE_USERNAMES_VALIDATION_OPTION: REMOTE_USERNAMES_VALIDATION_DEFAULT
+                    REMOTE_USERNAMES_VALIDATION_OPTION: REMOTE_USERNAMES_VALIDATION_DEFAULT,
+                    CA_PRIVATE_KEY_COMPRESSION_OPTION: CA_PRIVATE_KEY_COMPRESSION_OPTION_DEFAULT
                     }
         ConfigParser.RawConfigParser.__init__(self, defaults=defaults)
         self.read(config_file)
@@ -117,14 +121,23 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
         return map(str.strip, self.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION).split(','))
 
     def getprivatekey(self):
+        compression = CA_PRIVATE_KEY_COMPRESSION_OPTION_DEFAULT
+
+        if self.has_option(BLESS_CA_SECTION, CA_PRIVATE_KEY_COMPRESSION_OPTION):
+            compression = self.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_COMPRESSION_OPTION)
+            compression = CA_PRIVATE_KEY_COMPRESSION_OPTION_DEFAULT if type(compression) == str and compression.lower() == "none" else compression
+
+        if compression not in [CA_PRIVATE_KEY_COMPRESSION_OPTION_DEFAULT, 'zlib']:
+            raise ValueError("Compression {} for private key is not supported.".format(compression))
+
         if self.has_option(BLESS_CA_SECTION, CA_PRIVATE_KEY_OPTION):
-            return base64.b64decode(self.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_OPTION))
+            return self._decompress(base64.b64decode(self.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_OPTION)), compression)
 
         ca_private_key_file = self.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
 
         # read the private key .pem
         with open(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, ca_private_key_file), 'r') as f:
-            return f.read()
+            return self._decompress(f.read(), compression)
 
     def has_option(self, section, option):
         """
@@ -159,3 +172,17 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
     @staticmethod
     def _environment_key(section, option):
         return (re.sub('\W+', '_', section) + '_' + re.sub('\W+', '_', option)).lower()
+
+    @staticmethod
+    def _decompress(data, algorithm):
+        if algorithm is CA_PRIVATE_KEY_COMPRESSION_OPTION_DEFAULT:
+            return data
+        elif algorithm is 'zlib':
+            result = ''
+            try:
+                result = zlib.decompress(data)
+            except zlib.error:
+                raise ValueError("Wrong compression {} for private key.".format(algorithm))
+            return result
+        else:
+            raise ValueError("Compression {} for private key is not supported.".format(algorithm))
