@@ -3,10 +3,11 @@
     :copyright: (c) 2016 by Netflix Inc., see AUTHORS for more
     :license: Apache, see LICENSE for more details.
 """
-import ConfigParser
 import base64
 import os
 import re
+
+from six.moves import configparser
 
 BLESS_OPTIONS_SECTION = 'Bless Options'
 CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION = 'certificate_validity_before_seconds'
@@ -59,7 +60,7 @@ REMOTE_USERNAMES_VALIDATION_OPTION = 'remote_usernames_validation'
 REMOTE_USERNAMES_VALIDATION_DEFAULT = 'principal'
 
 
-class BlessConfig(ConfigParser.RawConfigParser, object):
+class BlessConfig(configparser.RawConfigParser, object):
     def __init__(self, aws_region, config_file):
         """
         Parses the BLESS config file, and provides some reasonable default values if they are
@@ -86,7 +87,7 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
                     USERNAME_VALIDATION_OPTION: USERNAME_VALIDATION_DEFAULT,
                     REMOTE_USERNAMES_VALIDATION_OPTION: REMOTE_USERNAMES_VALIDATION_DEFAULT
                     }
-        ConfigParser.RawConfigParser.__init__(self, defaults=defaults)
+        configparser.RawConfigParser.__init__(self, defaults=defaults)
         self.read(config_file)
 
         if not self.has_section(BLESS_OPTIONS_SECTION):

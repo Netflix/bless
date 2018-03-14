@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import base64
 
 import pytest
@@ -139,7 +141,7 @@ def test_add_extensions():
     for extension in extensions:
         cert_builder.add_extension(extension)
 
-    print base64.b64encode(cert_builder._serialize_extensions())
+    print(base64.b64encode(cert_builder._serialize_extensions()))
     assert SSH_CERT_CUSTOM_EXTENSIONS == cert_builder._serialize_extensions()
 
 

@@ -6,6 +6,11 @@
 import binascii
 import struct
 
+try:
+    long        # Python 2
+except NameError:
+    long = int  # Python 3
+
 
 def pack_ssh_mpint(mpint):
     """

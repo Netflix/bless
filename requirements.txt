@@ -30,4 +30,4 @@ pytest==3.0.6
 pytest-mock==1.6.0
 python-dateutil==2.6.0
 s3transfer==0.1.10
-six==1.10.0
+six==1.11.0
