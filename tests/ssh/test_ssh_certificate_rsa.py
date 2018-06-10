@@ -5,8 +5,10 @@ from cryptography.hazmat.primitives.serialization import _ssh_read_next_string
 
 from bless.ssh.certificate_authorities.rsa_certificate_authority import RSACertificateAuthority
 from bless.ssh.certificates.rsa_certificate_builder import RSACertificateBuilder
+from bless.ssh.certificates.ed25519_certificate_builder import ED25519CertificateBuilder
 from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
 from bless.ssh.public_keys.rsa_public_key import RSAPublicKey
+from bless.ssh.public_keys.ed25519_public_key import ED25519PublicKey
 from tests.ssh.vectors import RSA_CA_PRIVATE_KEY, RSA_CA_PRIVATE_KEY_PASSWORD, \
     EXAMPLE_RSA_PUBLIC_KEY, EXAMPLE_RSA_PUBLIC_KEY_NO_DESCRIPTION, RSA_USER_CERT_MINIMAL, \
     RSA_USER_CERT_DEFAULTS, RSA_USER_CERT_DEFAULTS_NO_PUBLIC_KEY_COMMENT, \
@@ -14,7 +16,8 @@ from tests.ssh.vectors import RSA_CA_PRIVATE_KEY, RSA_CA_PRIVATE_KEY_PASSWORD, \
     RSA_USER_CERT_FORCE_COMMAND_AND_SOURCE_ADDRESS, \
     RSA_USER_CERT_FORCE_COMMAND_AND_SOURCE_ADDRESS_KEY_ID, RSA_HOST_CERT_MANY_PRINCIPALS_KEY_ID, \
     RSA_USER_CERT_MANY_PRINCIPALS_KEY_ID, RSA_USER_CERT_DEFAULTS_NO_PUBLIC_KEY_COMMENT_KEY_ID, \
-    RSA_USER_CERT_DEFAULTS_KEY_ID, SSH_CERT_DEFAULT_EXTENSIONS, SSH_CERT_CUSTOM_EXTENSIONS
+    RSA_USER_CERT_DEFAULTS_KEY_ID, SSH_CERT_DEFAULT_EXTENSIONS, SSH_CERT_CUSTOM_EXTENSIONS, \
+    EXAMPLE_ED25519_PUBLIC_KEY, ED25519_USER_CERT_DEFAULTS, ED25519_USER_CERT_DEFAULTS_KEY_ID
 
 USER1 = 'user1'
 
@@ -219,3 +222,15 @@ def test_nonce():
     cert_builder2.set_nonce()
 
     assert cert_builder.nonce != cert_builder2.nonce
+
+
+def test_ed25519_user_cert_defaults():
+    ca = get_basic_rsa_ca()
+    pub_key = ED25519PublicKey(EXAMPLE_ED25519_PUBLIC_KEY)
+    cert_builder = ED25519CertificateBuilder(ca, SSHCertificateType.USER, pub_key)
+    cert_builder.set_nonce(
+        nonce=extract_nonce_from_cert(ED25519_USER_CERT_DEFAULTS))
+    cert_builder.set_key_id(ED25519_USER_CERT_DEFAULTS_KEY_ID)
+
+    cert = cert_builder.get_cert_file()
+    assert ED25519_USER_CERT_DEFAULTS == cert
