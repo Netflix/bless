@@ -4,6 +4,7 @@ from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import 
     get_ssh_certificate_authority
 from bless.ssh.certificates.rsa_certificate_builder import RSACertificateBuilder, \
     SSHCertifiedKeyType
+from bless.ssh.certificates.ed25519_certificate_builder import ED25519CertificateBuilder
 from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
 from bless.ssh.certificates.ssh_certificate_builder_factory import get_ssh_certificate_builder
 from tests.ssh.vectors import RSA_CA_PRIVATE_KEY, RSA_CA_PRIVATE_KEY_PASSWORD, \
@@ -18,10 +19,12 @@ def test_valid_rsa_request():
     assert cert.startswith(SSHCertifiedKeyType.RSA)
 
 
-def test_invalid_ed25519_request():
-    with pytest.raises(TypeError):
-        ca = get_ssh_certificate_authority(RSA_CA_PRIVATE_KEY, RSA_CA_PRIVATE_KEY_PASSWORD)
-        get_ssh_certificate_builder(ca, SSHCertificateType.USER, EXAMPLE_ED25519_PUBLIC_KEY)
+def test_valid_ed25519_request():
+    ca = get_ssh_certificate_authority(RSA_CA_PRIVATE_KEY, RSA_CA_PRIVATE_KEY_PASSWORD)
+    cert_builder = get_ssh_certificate_builder(ca, SSHCertificateType.USER, EXAMPLE_ED25519_PUBLIC_KEY)
+    cert = cert_builder.get_cert_file()
+    assert isinstance(cert_builder, ED25519CertificateBuilder)
+    assert cert.startswith(SSHCertifiedKeyType.ED25519)
 
 
 def test_invalid_key_request():
