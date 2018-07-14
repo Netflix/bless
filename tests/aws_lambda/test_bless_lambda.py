@@ -4,7 +4,7 @@ import pytest
 
 from bless.aws_lambda.bless_lambda import lambda_handler
 from tests.ssh.vectors import EXAMPLE_RSA_PUBLIC_KEY, RSA_CA_PRIVATE_KEY_PASSWORD, \
-    EXAMPLE_ED25519_PUBLIC_KEY
+    EXAMPLE_ED25519_PUBLIC_KEY, EXAMPLE_ECDSA_PUBLIC_KEY
 
 
 class Context(object):
@@ -15,6 +15,15 @@ class Context(object):
 VALID_TEST_REQUEST = {
     "remote_usernames": "user",
     "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1"
+}
+
+VALID_TEST_REQUEST_ED2551 = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_ED25519_PUBLIC_KEY,
     "command": "ssh user@server",
     "bastion_ips": "127.0.0.1",
     "bastion_user": "user",
@@ -60,7 +69,7 @@ VALID_TEST_REQUEST_KMSAUTH = {
 
 INVALID_TEST_REQUEST_KEY_TYPE = {
     "remote_usernames": "user",
-    "public_key_to_sign": EXAMPLE_ED25519_PUBLIC_KEY,
+    "public_key_to_sign": EXAMPLE_ECDSA_PUBLIC_KEY,
     "command": "ssh user@server",
     "bastion_ips": "127.0.0.1",
     "bastion_user": "user",
@@ -151,6 +160,14 @@ def test_basic_local_request():
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
     assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_basic_local_request_ed2551():
+    output = lambda_handler(VALID_TEST_REQUEST_ED2551, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+    assert output['certificate'].startswith('ssh-ed25519-cert-v01@openssh.com ')
 
 
 def test_basic_local_unused_kmsauth_request():
