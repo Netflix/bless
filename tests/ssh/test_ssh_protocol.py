@@ -1,6 +1,11 @@
 import pytest
-from bless.ssh.protocol.ssh_protocol import pack_ssh_mpint, _hex_characters_length, \
-    pack_ssh_uint32, pack_ssh_uint64, pack_ssh_string
+from bless.ssh.protocol.ssh_protocol import (pack_ssh_mpint, _hex_characters_length,
+    pack_ssh_uint32, pack_ssh_uint64, pack_ssh_string)
+
+try:
+    long        # Python 2
+except NameError:
+    long = int  # Python 3
 
 
 def test_strings():
