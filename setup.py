@@ -19,10 +19,7 @@ setup(
     packages=find_packages(exclude=["test*"]),
     install_requires=[
         'boto3',
-        'botocore',
-        'cffi',
         'cryptography',
-        'enum34',
         'ipaddress',
         'marshmallow',
         'kmsauth'

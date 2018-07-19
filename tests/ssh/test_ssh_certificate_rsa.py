@@ -71,7 +71,7 @@ def test_serialize_no_principals():
     cert = get_basic_cert_builder_rsa()
 
     assert list() == cert.valid_principals
-    assert '' == cert._serialize_valid_principals()
+    assert b'' == cert._serialize_valid_principals()
 
 
 def test_serialize_one_principal():
@@ -99,14 +99,14 @@ def test_no_extensions():
     assert cert_builder.extensions is None
 
     cert_builder.clear_extensions()
-    assert '' == cert_builder._serialize_extensions()
+    assert b'' == cert_builder._serialize_extensions()
 
 
 def test_bogus_cert_validity_range():
     cert_builder = get_basic_cert_builder_rsa()
     with pytest.raises(ValueError):
+        cert_builder.set_valid_before(99)
         cert_builder.set_valid_after(100)
-        cert_builder.set_valid_after(99)
         cert_builder._validate_cert_properties()
 
 
@@ -142,7 +142,6 @@ def test_add_extensions():
     for extension in extensions:
         cert_builder.add_extension(extension)
 
-    print base64.b64encode(cert_builder._serialize_extensions())
     assert SSH_CERT_CUSTOM_EXTENSIONS == cert_builder._serialize_extensions()
 
 

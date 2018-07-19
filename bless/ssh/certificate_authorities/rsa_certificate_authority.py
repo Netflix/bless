@@ -29,8 +29,6 @@ class RSACertificateAuthority(SSHCertificateAuthority):
                                                 private_key_password,
                                                 default_backend())
 
-        self.signer = self.private_key.signer(padding.PKCS1v15(),
-                                              hashes.SHA1())
         ca_pub_numbers = self.private_key.public_key().public_numbers()
 
         self.e = ca_pub_numbers.e
@@ -55,7 +53,6 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         signature key.
         :return: SSH RSA Signature.
         """
-        self.signer.update(body)
-        signature = self.signer.finalize()
+        signature = self.private_key.sign(body, padding.PKCS1v15(), hashes.SHA1())
 
         return self._serialize_signature(signature)
