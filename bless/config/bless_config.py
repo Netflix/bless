@@ -64,6 +64,9 @@ VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_DEFAULT = False
 IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION = 'kmsauth_iam_group_name_format'
 IAM_GROUP_NAME_VALIDATION_FORMAT_DEFAULT = 'ssh-{}'
 
+REMOTE_USERNAMES_BLACKLIST_OPTION = 'remote_usernames_blacklist'
+REMOTE_USERNAMES_BLACKLIST_DEFAULT = None
+
 
 class BlessConfig(configparser.RawConfigParser, object):
     def __init__(self, aws_region, config_file):
@@ -92,7 +95,8 @@ class BlessConfig(configparser.RawConfigParser, object):
                     USERNAME_VALIDATION_OPTION: USERNAME_VALIDATION_DEFAULT,
                     REMOTE_USERNAMES_VALIDATION_OPTION: REMOTE_USERNAMES_VALIDATION_DEFAULT,
                     VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION: VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_DEFAULT,
-                    IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION: IAM_GROUP_NAME_VALIDATION_FORMAT_DEFAULT
+                    IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION: IAM_GROUP_NAME_VALIDATION_FORMAT_DEFAULT,
+                    REMOTE_USERNAMES_BLACKLIST_OPTION: REMOTE_USERNAMES_BLACKLIST_DEFAULT
                     }
         configparser.RawConfigParser.__init__(self, defaults=defaults)
         self.read(config_file)

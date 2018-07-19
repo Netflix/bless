@@ -29,7 +29,8 @@ from bless.config.bless_config import BlessConfig, \
     TEST_USER_OPTION, \
     CERTIFICATE_EXTENSIONS_OPTION, \
     REMOTE_USERNAMES_VALIDATION_OPTION, \
-    IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION
+    IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION, \
+    REMOTE_USERNAMES_BLACKLIST_OPTION
 from bless.request.bless_request import BlessSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
@@ -82,6 +83,8 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
     schema.context[USERNAME_VALIDATION_OPTION] = config.get(BLESS_OPTIONS_SECTION, USERNAME_VALIDATION_OPTION)
     schema.context[REMOTE_USERNAMES_VALIDATION_OPTION] = config.get(BLESS_OPTIONS_SECTION,
                                                                     REMOTE_USERNAMES_VALIDATION_OPTION)
+    schema.context[REMOTE_USERNAMES_BLACKLIST_OPTION] = config.get(BLESS_OPTIONS_SECTION,
+                                                                   REMOTE_USERNAMES_BLACKLIST_OPTION)
 
     try:
         request = schema.load(event).data
@@ -167,8 +170,8 @@ def lambda_handler(event, context=None, ca_private_key_password=None,
                                                                                               required_group_name))
 
             elif request.remote_usernames != request.bastion_user:
-                    return error_response('KMSAuthValidationError',
-                                          'remote_usernames must be the same as bastion_user')
+                return error_response('KMSAuthValidationError',
+                                      'remote_usernames must be the same as bastion_user')
             try:
                 validator = KMSTokenValidator(
                     None,
