@@ -151,6 +151,15 @@ VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER = {
     "kmsauth_token": "validkmsauthtoken"
 }
 
+INVALID_TEST_REQUEST_BLACKLISTED_REMOTE_USERNAME = {
+    "remote_usernames": "alloweduser,balrog",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1"
+}
+
 os.environ['AWS_REGION'] = 'us-west-2'
 
 
@@ -364,6 +373,7 @@ def test_valid_request_with_allowed_remote(mocker):
                                                      'bless-test-kmsauth-different-remote.cfg'))
     assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
 
+
 def test_valid_request_with_allowed_remote_and_allowed_iam_group(mocker):
     mocker.patch("kmsauth.KMSTokenValidator.decrypt_token")
     clientmock = mocker.MagicMock()
@@ -390,3 +400,18 @@ def test_invalid_request_with_allowed_remote_and_not_allowed_iam_group(mocker):
                             config_file=os.path.join(os.path.dirname(__file__),
                                                      'bless-test-kmsauth-iam-group-validation.cfg'))
     assert output['errorType'] == 'KMSAuthValidationError'
+
+
+def test_basic_local_request_blacklisted(monkeypatch):
+    extra_environment_variables = {
+        'bless_options_remote_usernames_blacklist': 'root|balrog',
+    }
+
+    for k, v in extra_environment_variables.items():
+        monkeypatch.setenv(k, v)
+
+    output = lambda_handler(INVALID_TEST_REQUEST_BLACKLISTED_REMOTE_USERNAME, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+    assert output['errorType'] == 'InputValidationError'
