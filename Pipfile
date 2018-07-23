@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+bless = {editable = true, path = "."}
+
+[dev-packages]
+coverage = "*"
+flake8 = "*"
+pytest = "*"
+pytest-mock = "*"
+coveralls = "*"
+
+[requires]
+python_version = "3.6"

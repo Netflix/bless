@@ -1,12 +1,12 @@
 test: lint
 	@echo "--> Running Python tests"
-	py.test tests || exit 1
+	pipenv run py.test tests || exit 1
 	@echo ""
 
 develop:
 	@echo "--> Installing dependencies"
-	pip install -r requirements.txt
-	pip install "file://`pwd`#egg=bless[tests]"
+	pipenv install
+	pipenv install --dev
 	@echo ""
 
 dev-docs:
@@ -20,13 +20,13 @@ clean:
 
 lint:
 	@echo "--> Linting Python files"
-	PYFLAKES_NODOCTEST=1 flake8 bless
+	PYFLAKES_NODOCTEST=1 pipenv run flake8 bless
 	@echo ""
 
 coverage:
 	@echo "--> Running Python tests with coverage"
-	coverage run --branch --source=bless -m py.test tests || exit 1
-	coverage html
+	pipenv run coverage run --branch --source=bless -m py.test tests || exit 1
+	pipenv run coverage html
 	@echo ""
 
 publish:

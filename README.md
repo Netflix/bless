@@ -31,21 +31,17 @@ Cd to the bless repo:
 
     $ cd bless
 
-Create a virtualenv if you haven't already:
+Install package and test dependencies with pipenv:
 
-    $ python3.6 -m venv venv
+    $ make develop
 
 Activate the venv:
 
-    $ source venv/bin/activate
-
-Install package and test dependencies:
-
-    (venv) $ make develop
+    $ pipenv shell
 
 Run the tests:
 
-    (venv) $ make test
+    $ make test
 
 
 ## Deployment

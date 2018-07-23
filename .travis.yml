@@ -9,7 +9,7 @@ matrix:
     - python: "3.6"
 
 install:
-  - pip install coveralls
+  - pip install pipenv
   - make develop
 
 before_script:
@@ -19,8 +19,8 @@ script:
   - make coverage
 
 after_success:
-  - coveralls
-  - coverage report
+  - pipenv run coveralls
+  - pipenv run coverage report
 
 notifications:
   email:
