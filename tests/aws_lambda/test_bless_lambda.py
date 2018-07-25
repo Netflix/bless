@@ -160,8 +160,6 @@ INVALID_TEST_REQUEST_BLACKLISTED_REMOTE_USERNAME = {
     "bastion_user_ip": "127.0.0.1"
 }
 
-os.environ['AWS_REGION'] = 'us-west-2'
-
 
 def test_basic_local_request():
     output = lambda_handler(VALID_TEST_REQUEST, context=Context,
