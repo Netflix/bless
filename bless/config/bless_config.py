@@ -58,6 +58,12 @@ USERNAME_VALIDATION_DEFAULT = 'useradd'
 REMOTE_USERNAMES_VALIDATION_OPTION = 'remote_usernames_validation'
 REMOTE_USERNAMES_VALIDATION_DEFAULT = 'principal'
 
+VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION = 'kmsauth_validate_remote_usernames_against_iam_groups'
+VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_DEFAULT = False
+
+IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION = 'kmsauth_iam_group_name_format'
+IAM_GROUP_NAME_VALIDATION_FORMAT_DEFAULT = 'ssh-{}'
+
 
 class BlessConfig(configparser.RawConfigParser, object):
     def __init__(self, aws_region, config_file):
@@ -84,7 +90,9 @@ class BlessConfig(configparser.RawConfigParser, object):
                     KMSAUTH_USEKMSAUTH_OPTION: KMSAUTH_USEKMSAUTH_DEFAULT,
                     CERTIFICATE_EXTENSIONS_OPTION: CERTIFICATE_EXTENSIONS_DEFAULT,
                     USERNAME_VALIDATION_OPTION: USERNAME_VALIDATION_DEFAULT,
-                    REMOTE_USERNAMES_VALIDATION_OPTION: REMOTE_USERNAMES_VALIDATION_DEFAULT
+                    REMOTE_USERNAMES_VALIDATION_OPTION: REMOTE_USERNAMES_VALIDATION_DEFAULT,
+                    VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION: VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_DEFAULT,
+                    IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION: IAM_GROUP_NAME_VALIDATION_FORMAT_DEFAULT
                     }
         configparser.RawConfigParser.__init__(self, defaults=defaults)
         self.read(config_file)
