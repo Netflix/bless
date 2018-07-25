@@ -4,6 +4,7 @@
     :license: Apache, see LICENSE for more details.
 """
 from bless.ssh.public_keys.rsa_public_key import RSAPublicKey
+from bless.ssh.public_keys.ed25519_public_key import ED25519PublicKey
 from bless.ssh.public_keys.ssh_public_key import SSHPublicKeyType
 
 
@@ -17,5 +18,8 @@ def get_ssh_public_key(ssh_public_key):
         rsa_public_key = RSAPublicKey(ssh_public_key)
         rsa_public_key.validate_for_signing()
         return rsa_public_key
+    elif ssh_public_key.startswith(SSHPublicKeyType.ED25519):
+        ed25519_public_key = ED25519PublicKey(ssh_public_key)
+        return ed25519_public_key
     else:
         raise TypeError("Unsupported Public Key Type")

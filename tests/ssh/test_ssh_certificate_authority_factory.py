@@ -29,14 +29,14 @@ def test_valid_key_missing_password():
 
 def test_valid_key_invalid_password():
     with pytest.raises(ValueError):
-        get_ssh_certificate_authority(RSA_CA_PRIVATE_KEY, 'bogus')
+        get_ssh_certificate_authority(RSA_CA_PRIVATE_KEY, b'bogus')
 
 
 def test_valid_key_not_encrypted_invalid_pass():
     with pytest.raises(TypeError):
-        get_ssh_certificate_authority(RSA_CA_PRIVATE_KEY_NOT_ENCRYPTED, 'bogus')
+        get_ssh_certificate_authority(RSA_CA_PRIVATE_KEY_NOT_ENCRYPTED, b'bogus')
 
 
 def test_invalid_key():
     with pytest.raises(TypeError):
-        get_ssh_certificate_authority('bogus')
+        get_ssh_certificate_authority(b'bogus')

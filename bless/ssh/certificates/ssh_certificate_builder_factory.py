@@ -5,6 +5,8 @@
 """
 from bless.ssh.certificates.rsa_certificate_builder \
     import RSACertificateBuilder
+from bless.ssh.certificates.ed25519_certificate_builder \
+    import ED25519CertificateBuilder
 from bless.ssh.public_keys.ssh_public_key import SSHPublicKeyType
 from bless.ssh.public_keys.ssh_public_key_factory import get_ssh_public_key
 
@@ -23,5 +25,7 @@ def get_ssh_certificate_builder(ca, cert_type, public_key_to_sign):
 
     if ssh_public_key.type is SSHPublicKeyType.RSA:
         return RSACertificateBuilder(ca, cert_type, ssh_public_key)
+    elif ssh_public_key.type is SSHPublicKeyType.ED25519:
+        return ED25519CertificateBuilder(ca, cert_type, ssh_public_key)
     else:
         raise TypeError("Unsupported Public Key Type")

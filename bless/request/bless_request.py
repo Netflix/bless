@@ -29,6 +29,7 @@ USERNAME_PATTERN_DEBIAN = re.compile('\A[^-+~][^:,\s]*\Z')
 # There doesn't seem to be any practical size limits of an SSH Certificate Principal (> 4096B allowed).
 PRINCIPAL_PATTERN = re.compile(r'[\d\w!"$%&\'()*+\-./:;<=>?@\[\\\]\^`{|}~]+\Z')
 VALID_SSH_RSA_PUBLIC_KEY_HEADER = "ssh-rsa AAAAB3NzaC1yc2"
+VALID_SSH_ED25519_PUBLIC_KEY_HEADER = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5"
 
 USERNAME_VALIDATION_OPTIONS = Enum('UserNameValidationOptions',
                                    'useradd '  # Allowable usernames per 'man 8 useradd'
@@ -79,7 +80,7 @@ def _validate_principal(principal):
 
 
 def validate_ssh_public_key(public_key):
-    if public_key.startswith(VALID_SSH_RSA_PUBLIC_KEY_HEADER):
+    if public_key.startswith(VALID_SSH_RSA_PUBLIC_KEY_HEADER) or public_key.startswith(VALID_SSH_ED25519_PUBLIC_KEY_HEADER):
         pass
     # todo other key types
     else:

@@ -48,7 +48,7 @@ def main(argv):
         return -1
 
     region, lambda_function_name, bastion_user, bastion_user_ip, remote_usernames, bastion_ips, \
-        bastion_command, public_key_filename, certificate_filename = argv
+        bastion_command, public_key_filename, certificate_filename = argv[:9]
 
     with open(public_key_filename, 'r') as f:
         public_key = f.read().strip()
@@ -77,7 +77,7 @@ def main(argv):
     payload = json.loads(response['Payload'].read())
 
     if 'certificate' not in payload:
-        print payload
+        print(payload)
         return -1
 
     cert = payload['certificate']

@@ -207,7 +207,7 @@ class SSHCertificateBuilder(object):
         file_contents = (
             "{} {} {}"
         ).format(self.cert_key_type,
-                 base64.b64encode(self._sign_cert(bypass_time_validity_check)),
+                 str(base64.b64encode(self._sign_cert(bypass_time_validity_check)), encoding='ascii'),
                  self.public_key_comment)
         return file_contents
 
@@ -273,7 +273,7 @@ class SSHCertificateBuilder(object):
         # sequence. Each named option may only appear once in a certificate.
         extensions_list = sorted(self.extensions)
 
-        serialized = ''
+        serialized = b''
         # Format is a series of {extension name}{empty string}
         for extension in extensions_list:
             serialized += pack_ssh_string(extension)
@@ -282,7 +282,7 @@ class SSHCertificateBuilder(object):
         return serialized
 
     def _serialize_valid_principals(self):
-        serialized = ''
+        serialized = b''
 
         for principal in self.valid_principals:
             serialized += pack_ssh_string(principal)
@@ -292,7 +292,7 @@ class SSHCertificateBuilder(object):
     def _serialize_critical_options(self):
         # Options must be lexically ordered by "name" if they appear in the
         # sequence. Each named option may only appear once in a certificate.
-        serialized = ''
+        serialized = b''
 
         if self.critical_option_force_command is not None:
             serialized += pack_ssh_string('force-command')
