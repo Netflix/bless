@@ -36,7 +36,7 @@ publish:
 	mv ./publish/bless_lambda/bless/aws_lambda/* ./publish/bless_lambda/
 	cp -r ./aws_lambda_libs/. ./publish/bless_lambda/
 	cp -r ./lambda_configs/. ./publish/bless_lambda/
-	cd ./publish/bless_lambda && zip -r ../bless_lambda.zip .
+	cd ./publish/bless_lambda && zip -FSr ../bless_lambda.zip .
 
 compile:
 	yum install -y gcc libffi-devel openssl-devel python36 python36-virtualenv
