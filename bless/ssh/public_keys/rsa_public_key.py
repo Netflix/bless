@@ -57,7 +57,7 @@ class RSAPublicKey(SSHPublicKey):
         else:
             self.key_comment = ''
 
-        public_key = serialization.load_ssh_public_key(ssh_public_key, default_backend())
+        public_key = serialization.load_ssh_public_key(ssh_public_key.encode('ascii'), default_backend())
         ca_pub_numbers = public_key.public_numbers()
         if not isinstance(ca_pub_numbers, RSAPublicNumbers):
             raise TypeError("Public Key is not the correct type or format")

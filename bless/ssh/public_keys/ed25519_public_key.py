@@ -48,7 +48,7 @@ class ED25519PublicKey(SSHPublicKey):
 
         inner_key_type, rest = serialization._ssh_read_next_string(decoded_data)
 
-        if inner_key_type != key_type:
+        if inner_key_type != key_type.encode("utf-8"):
             raise ValueError(
                 'Key header and key body contain different key type values.'
             )
