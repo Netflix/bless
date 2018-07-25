@@ -35,7 +35,7 @@ publish:
 	cp -r ./bless ./publish/bless_lambda/
 	mv ./publish/bless_lambda/bless/aws_lambda/* ./publish/bless_lambda/
 	cp -r ./aws_lambda_libs/. ./publish/bless_lambda/
-	cp -r ./lambda_configs/. ./publish/bless_lambda/
+	if [ -d ./lambda_configs/ ]; then cp -r ./lambda_configs/. ./publish/bless_lambda/; fi
 	cd ./publish/bless_lambda && zip -FSr ../bless_lambda.zip .
 
 compile:
