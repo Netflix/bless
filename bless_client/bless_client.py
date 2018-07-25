@@ -77,7 +77,7 @@ def main(argv):
     payload = json.loads(response['Payload'].read())
 
     if 'certificate' not in payload:
-        print payload
+        print(payload)
         return -1
 
     cert = payload['certificate']

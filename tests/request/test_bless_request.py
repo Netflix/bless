@@ -6,24 +6,24 @@ from bless.request.bless_request import validate_ips, validate_user, USERNAME_VA
 
 
 def test_validate_ips():
-    validate_ips(u'127.0.0.1')
+    validate_ips('127.0.0.1')
     with pytest.raises(ValidationError):
-        validate_ips(u'256.0.0.0')
-    validate_ips(u'127.0.0.1,172.1.1.1')
+        validate_ips('256.0.0.0')
+    validate_ips('127.0.0.1,172.1.1.1')
     with pytest.raises(ValidationError):
-        validate_ips(u'256.0.0.0,172.1.1.1')
+        validate_ips('256.0.0.0,172.1.1.1')
 
 
 def test_validate_ips_cidr():
-    validate_ips(u'10.0.0.0/8,172.1.1.1')
+    validate_ips('10.0.0.0/8,172.1.1.1')
     with pytest.raises(ValidationError):
-        validate_ips(u'10.10.10.10/8')
+        validate_ips('10.10.10.10/8')
 
 
 def test_validate_user_too_long():
     with pytest.raises(ValidationError) as e:
         validate_user('a33characterusernameyoumustbenuts', USERNAME_VALIDATION_OPTIONS.useradd)
-    assert e.value.message == 'Username is too long.'
+    assert str(e.value) == 'Username is too long.'
 
 
 @pytest.mark.parametrize("test_input", [
@@ -36,7 +36,7 @@ def test_validate_user_too_long():
 def test_validate_user_contains_junk(test_input):
     with pytest.raises(ValidationError) as e:
         validate_user(test_input, USERNAME_VALIDATION_OPTIONS.useradd)
-    assert e.value.message == 'Username contains invalid characters.'
+    assert str(e.value) == 'Username contains invalid characters.'
 
 
 @pytest.mark.parametrize("test_input", [
@@ -52,7 +52,7 @@ def test_validate_user(test_input):
 def test_validate_user_debian_too_long():
     with pytest.raises(ValidationError) as e:
         validate_user('a33characterusernameyoumustbenuts', USERNAME_VALIDATION_OPTIONS.debian)
-    assert e.value.message == 'Username is too long.'
+    assert str(e.value) == 'Username is too long.'
 
 
 @pytest.mark.parametrize("test_input", [
@@ -68,7 +68,7 @@ def test_validate_user_debian_too_long():
 def test_validate_user_debian_invalid(test_input):
     with pytest.raises(ValidationError) as e:
         validate_user(test_input, USERNAME_VALIDATION_OPTIONS.debian)
-    assert e.value.message == 'Username contains invalid characters.'
+    assert str(e.value)  == 'Username contains invalid characters.'
 
 
 @pytest.mark.parametrize("test_input", [
@@ -109,7 +109,7 @@ def test_validate_user_email(test_input):
 def test_invalid_user_email(test_input):
     with pytest.raises(ValidationError) as e:
         validate_user(test_input, USERNAME_VALIDATION_OPTIONS.email)
-    assert e.value.message == 'Invalid email address.'
+    assert str(e.value)  == 'Invalid email address.'
 
 
 @pytest.mark.parametrize("test_input", [
@@ -147,16 +147,16 @@ def test_validate_multiple_principals(test_input):
 def test_invalid_multiple_principals(test_input):
     with pytest.raises(ValidationError) as e:
         BlessSchema().validate_remote_usernames(test_input)
-    assert e.value.message == 'Principal contains invalid characters.'
+    assert str(e.value) == 'Principal contains invalid characters.'
 
 
 def test_invalid_user_with_default_context_of_useradd():
     with pytest.raises(ValidationError) as e:
         BlessSchema().validate_bastion_user('user#invalid')
-    assert e.value.message == 'Username contains invalid characters.'
+    assert str(e.value)  == 'Username contains invalid characters.'
 
 
 def test_invalid_call_of_validate_user():
     with pytest.raises(ValidationError) as e:
         validate_user('test', None)
-    assert e.value.message == 'Invalid username validator.'
+    assert str(e.value)  == 'Invalid username validator.'

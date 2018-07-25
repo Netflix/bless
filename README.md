@@ -33,7 +33,7 @@ Cd to the bless repo:
 
 Create a virtualenv if you haven't already:
 
-    $ virtualenv venv
+    $ python3.6 -m venv venv
 
 Activate the venv:
 

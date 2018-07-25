@@ -3,7 +3,7 @@
     :copyright: (c) 2016 by Netflix Inc., see AUTHORS for more
     :license: Apache, see LICENSE for more details.
 """
-import ConfigParser
+import configparser
 import base64
 import os
 import re
@@ -65,7 +65,7 @@ IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION = 'kmsauth_iam_group_name_format'
 IAM_GROUP_NAME_VALIDATION_FORMAT_DEFAULT = 'ssh-{}'
 
 
-class BlessConfig(ConfigParser.RawConfigParser, object):
+class BlessConfig(configparser.RawConfigParser, object):
     def __init__(self, aws_region, config_file):
         """
         Parses the BLESS config file, and provides some reasonable default values if they are
@@ -94,7 +94,7 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
                     VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION: VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_DEFAULT,
                     IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION: IAM_GROUP_NAME_VALIDATION_FORMAT_DEFAULT
                     }
-        ConfigParser.RawConfigParser.__init__(self, defaults=defaults)
+        configparser.RawConfigParser.__init__(self, defaults=defaults)
         self.read(config_file)
 
         if not self.has_section(BLESS_OPTIONS_SECTION):
@@ -122,7 +122,7 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
         in one region can validate in another).
         :return: A list of kmsauth key ids
         """
-        return map(str.strip, self.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION).split(','))
+        return list(map(str.strip, self.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION).split(',')))
 
     def getprivatekey(self):
         if self.has_option(BLESS_CA_SECTION, CA_PRIVATE_KEY_OPTION):
@@ -132,7 +132,7 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
 
         # read the private key .pem
         with open(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, ca_private_key_file), 'r') as f:
-            return f.read()
+            return f.read().encode('ascii')
 
     def has_option(self, section, option):
         """
@@ -149,7 +149,7 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
         else:
             return super(BlessConfig, self).has_option(section, option)
 
-    def get(self, section, option):
+    def get(self, section, option, **kwargs):
         """
         Gets a value from the configuration.
 
@@ -161,7 +161,7 @@ class BlessConfig(ConfigParser.RawConfigParser, object):
         environment_key = self._environment_key(section, option)
         output = os.environ.get(environment_key, None)
         if output is None:
-            output = super(BlessConfig, self).get(section, option)
+            output = super(BlessConfig, self).get(section, option, **kwargs)
         return output
 
     @staticmethod

@@ -35,7 +35,7 @@ def test_config_no_password():
     with pytest.raises(ValueError) as e:
         BlessConfig('bogus-region',
                     config_file=os.path.join(os.path.dirname(__file__), 'full.cfg'))
-    assert 'No Region Specific And No Default Password Provided.' == e.value.message
+    assert 'No Region Specific And No Default Password Provided.' == str(e.value)
 
     config = BlessConfig('bogus-region',
                          config_file=os.path.join(os.path.dirname(__file__), 'full-with-default.cfg'))
@@ -56,7 +56,7 @@ def test_config_environment_override(monkeypatch):
         'bless_ca_us_east_1_password': '<INSERT_US-EAST-1_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
         'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
         'bless_ca_ca_private_key_file': '<INSERT_YOUR_ENCRYPTED_PEM_FILE_NAME>',
-        'bless_ca_ca_private_key': base64.b64encode('<INSERT_YOUR_ENCRYPTED_PEM_FILE_CONTENT>'),
+        'bless_ca_ca_private_key': str(base64.b64encode(b'<INSERT_YOUR_ENCRYPTED_PEM_FILE_CONTENT>'), encoding='ascii'),
 
         'kms_auth_use_kmsauth': 'True',
         'kms_auth_kmsauth_key_id': '<INSERT_ARN>',
@@ -80,7 +80,7 @@ def test_config_environment_override(monkeypatch):
 
     assert '<INSERT_US-EAST-1_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>' == config.getpassword()
     assert '<INSERT_YOUR_ENCRYPTED_PEM_FILE_NAME>' == config.get(BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION)
-    assert '<INSERT_YOUR_ENCRYPTED_PEM_FILE_CONTENT>' == config.getprivatekey()
+    assert b'<INSERT_YOUR_ENCRYPTED_PEM_FILE_CONTENT>' == config.getprivatekey()
 
     assert config.getboolean(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION)
     assert '<INSERT_ARN>' == config.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION)
