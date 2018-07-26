@@ -114,6 +114,16 @@ def lambda_handler(event, context):
 - Provide your desired ./lambda_configs/ca_key_name.pem prior to Publishing a new Lambda .zip
 - Set the permissions of ./lambda_configs/ca_key_name.pem to 444.
 
+You can now provide your private key and/or encrypted private key password via the lambda environment or config file.
+In the `[Bless CA]` section, you can set `ca_private_key` instead of the `ca_private_key_file` with a base64 encoded
+version of your .pem (e.g. `cat key.pem | base64` ).
+
+Because every config file option is supported in the environment, you can also just set `bless_ca_default_password`
+and/or `bless_ca_ca_private_key`.  Due to limits on AWS Lambda environment variables, you'll need to compress RSA 4096
+private keys, which you can now do by setting `bless_ca_ca_private_key_compression`. For example, set 
+`bless_ca_ca_private_key_compression = bz2` and `bless_ca_ca_private_key` to the output of 
+`cat ca-key.pem | bzip2 | base64`.
+
 ### BLESS Config File
 - Refer to the the [Example BLESS Config File](bless/config/bless_deploy_example.cfg) and its
 included documentation.
