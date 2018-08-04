@@ -9,7 +9,6 @@ import logging
 import boto3
 import os
 import time
-from datetime import timedelta
 from bless.cache.bless_lambda_cache import BlessLambdaCache
 
 from bless.config.bless_config import BLESS_OPTIONS_SECTION, \
@@ -28,7 +27,10 @@ from bless.config.bless_config import BLESS_OPTIONS_SECTION, \
     CERTIFICATE_EXTENSIONS_OPTION, \
     REMOTE_USERNAMES_VALIDATION_OPTION, \
     IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION, \
-    REMOTE_USERNAMES_BLACKLIST_OPTION
+    REMOTE_USERNAMES_BLACKLIST_OPTION, \
+    HOSTNAME_VALIDATION_OPTION, \
+    SERVER_CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, \
+    SERVER_CERTIFICATE_VALIDITY_AFTER_SEC_OPTION
 from bless.request.bless_request import BlessHostSchema, BlessUserSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
@@ -232,10 +234,16 @@ def lambda_handler_host(
 
     logger = set_logger(config)
 
+    certificate_validity_before_seconds = config.getint(BLESS_OPTIONS_SECTION,
+                                                        SERVER_CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION)
+    certificate_validity_after_seconds = config.getint(BLESS_OPTIONS_SECTION,
+                                                       SERVER_CERTIFICATE_VALIDITY_AFTER_SEC_OPTION)
+
     ca_private_key = config.getprivatekey()
 
     # Process cert request
     schema = BlessHostSchema(strict=True)
+    schema.context[HOSTNAME_VALIDATION_OPTION] = config.get(BLESS_OPTIONS_SECTION, HOSTNAME_VALIDATION_OPTION)
 
     try:
         request = schema.load(event).data
@@ -257,9 +265,8 @@ def lambda_handler_host(
 
     # cert values determined only by lambda and its configs
     current_time = int(time.time())
-    # todo: config server cert validity range
-    valid_before = current_time + int(timedelta(days=365).total_seconds())  # Host certificate is valid for at least 1 year
-    valid_after = current_time
+    valid_before = current_time + certificate_validity_after_seconds
+    valid_after = current_time - certificate_validity_before_seconds
 
     # Build the cert
     ca = get_ssh_certificate_authority(ca_private_key, ca_private_key_password)

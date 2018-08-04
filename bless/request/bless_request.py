@@ -9,11 +9,11 @@ import ipaddress
 from enum import Enum
 from marshmallow import Schema, fields, post_load, ValidationError, validates_schema
 from marshmallow import validates
-from marshmallow.validate import Email
+from marshmallow.validate import Email, URL
 
 from bless.config.bless_config import USERNAME_VALIDATION_OPTION, REMOTE_USERNAMES_VALIDATION_OPTION, \
     USERNAME_VALIDATION_DEFAULT, REMOTE_USERNAMES_VALIDATION_DEFAULT, REMOTE_USERNAMES_BLACKLIST_OPTION, \
-    REMOTE_USERNAMES_BLACKLIST_DEFAULT
+    REMOTE_USERNAMES_BLACKLIST_DEFAULT, HOSTNAME_VALIDATION_OPTION, HOSTNAME_VALIDATION_DEFAULT
 
 # man 8 useradd
 USERNAME_PATTERN = re.compile('[a-z_][a-z0-9_-]*[$]?\Z')
@@ -38,6 +38,11 @@ USERNAME_VALIDATION_OPTIONS = Enum('UserNameValidationOptions',
                                    'email '  # username is a valid email address.
                                    'principal '  # SSH Certificate Principal.  See 'man 5 sshd_config'.
                                    'disabled')  # no additional validation of the string.
+
+HOSTNAME_VALIDATION_OPTIONS = Enum('HostNameValidationOptions',
+                                   'url '  # Valid url format
+                                   'disabled'  # no validation
+)
 
 
 def validate_ips(ips):
@@ -90,6 +95,14 @@ def validate_ssh_public_key(public_key):
     # todo other key types
     else:
         raise ValidationError('Invalid SSH Public Key.')
+
+
+def validate_hostname(hostname, hostname_validation):
+    if hostname_validation == HOSTNAME_VALIDATION_OPTIONS.disabled:
+        return
+    else:
+        validator = URL(require_tld=False, schemes='ssh', error='Invalid hostname "{input}".')
+        validator('ssh://{}'.format(hostname))
 
 
 class BlessUserSchema(Schema):
@@ -174,6 +187,15 @@ class BlessHostSchema(Schema):
     @post_load
     def make_bless_request(self, data):
         return BlessHostRequest(**data)
+
+    @validates('hostnames')
+    def validate_hostnames(self, hostnames):
+        if HOSTNAME_VALIDATION_OPTION in self.context:
+            hostname_validation = HOSTNAME_VALIDATION_OPTIONS[self.context[HOSTNAME_VALIDATION_OPTION]]
+        else:
+            hostname_validation = HOSTNAME_VALIDATION_OPTIONS[HOSTNAME_VALIDATION_DEFAULT]
+        for hostname in hostnames.split(','):
+            validate_hostname(hostname, hostname_validation)
 
 
 class BlessHostRequest:

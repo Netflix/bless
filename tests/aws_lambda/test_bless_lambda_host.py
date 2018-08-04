@@ -19,12 +19,12 @@ VALID_TEST_REQUEST = {
 
 VALID_TEST_REQUEST_MULTIPLE_HOSTS = {
     "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
-    "hostnames": "thisthat.com, thatthis.com",
+    "hostnames": "thisthat.com,thatthis.com",
 }
 
 INVALID_TEST_REQUEST = {
     "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
-    "hostname": "wrongfieldname",
+    "hostname": "thisthat.com",  # Wrong key name
 }
 
 os.environ['AWS_REGION'] = 'us-west-2'
