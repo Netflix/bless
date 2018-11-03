@@ -130,7 +130,7 @@ included documentation.
 - Manage your bless_deploy.cfg files outside of this repo.
 - Provide your desired ./lambda_configs/bless_deploy.cfg prior to Publishing a new Lambda .zip
 - The required [Bless CA] option values must be set for your environment.
-- Every option can be changed in the environment. The environment variable name is contructed
+- Every option can be changed in the environment. The environment variable name is constructed
 as section_name_option_name (all lowercase, spaces replaced with underscores).
 
 ### Publish Lambda .zip
@@ -172,11 +172,11 @@ You can inspect the contents of a certificate with ssh-keygen directly:
     $ ssh-keygen -L -f your-cert.pub
 
 ## Enabling BLESS Certificates On Servers
-Add the following line to /etc/ssh/sshd_config:
+Add the following line to `/etc/ssh/sshd_config`:
 
     TrustedUserCAKeys /etc/ssh/cas.pub
 
-Add a new file, owned by and only writable by root, at /etc/ssh/cas.pub with the contents:
+Add a new file, owned by and only writable by root, at `/etc/ssh/cas.pub` with the contents:
 
     ssh-rsa AAAAB3NzaC1yc2EAAAADAQ…  #id_rsa.pub of an SSH CA
     ssh-rsa AAAAB3NzaC1yc2EAAAADAQ…  #id_rsa.pub of an offline SSH CA
