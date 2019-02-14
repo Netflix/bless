@@ -142,7 +142,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None, entropy_ch
         bypass_time_validity_check = False
 
     # Authenticate the user with KMS, if key is setup
-    if config.get(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION):
+    if config.getboolean(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION):
         if request.kmsauth_token:
             # Allow bless to sign the cert for a different remote user than the name of the user who signed it
             allowed_remotes = config.get(KMSAUTH_SECTION, KMSAUTH_REMOTE_USERNAMES_ALLOWED_OPTION)
@@ -154,7 +154,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None, entropy_ch
                                           'unallowed remote_usernames [{}]'.format(request.remote_usernames))
 
                 # Check if the user is in the required IAM groups
-                if config.get(KMSAUTH_SECTION, VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION):
+                if config.getboolean(KMSAUTH_SECTION, VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION):
                     iam = boto3.client('iam')
                     user_groups = iam.list_groups_for_user(UserName=request.bastion_user)
 
