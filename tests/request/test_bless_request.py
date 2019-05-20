@@ -100,7 +100,7 @@ def test_validate_user_debian(test_input):
 @pytest.mark.parametrize("test_input", [
     ('uservalid'),
     ('a32characterusernameyoumustok$'),
-    ('!"$%&\'()*+-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~')
+    ('!"$%&\'()*+-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~')
 ])
 def test_validate_user_principal(test_input):
     validate_user(test_input, USERNAME_VALIDATION_OPTIONS.principal)
@@ -128,7 +128,7 @@ def test_invalid_user_email(test_input):
 @pytest.mark.parametrize("test_input", [
     ('a33characterusernameyoumustbenuts'),
     ('~:, \n\t@'),
-    ('uservalid,!"$%&\'()*+-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~,'),
+    ('uservalid,!"$%&\'()*+-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~,'),
 ])
 def test_validate_user_disabled(test_input):
     validate_user(test_input, USERNAME_VALIDATION_OPTIONS.disabled)
@@ -137,7 +137,7 @@ def test_validate_user_disabled(test_input):
 @pytest.mark.parametrize("test_input", [
     ('uservalid'),
     ('uservalid,uservalid2'),
-    ('uservalid,!"$%&\'()*+-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~,'
+    ('uservalid,!"$%&\'()*+-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~,'
      'uservalid2')
 ])
 def test_validate_multiple_principals(test_input):

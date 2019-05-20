@@ -16,7 +16,7 @@ from bless.config.bless_config import USERNAME_VALIDATION_OPTION, REMOTE_USERNAM
     REMOTE_USERNAMES_BLACKLIST_DEFAULT
 
 # man 8 useradd
-USERNAME_PATTERN = re.compile('[a-z_][a-z0-9_-]*[$]?\Z')
+USERNAME_PATTERN = re.compile(r'[a-z_][a-z0-9_-]*[$]?\Z')
 
 # debian
 # On Debian, the only constraints are that usernames must neither start
@@ -24,7 +24,7 @@ USERNAME_PATTERN = re.compile('[a-z_][a-z0-9_-]*[$]?\Z')
 # (':'), a comma (','), or a whitespace (space: ' ', end of line: '\n',
 # tabulation: '\t', etc.). Note that using a slash ('/') may break the
 # default algorithm for the definition of the user's home directory.
-USERNAME_PATTERN_DEBIAN = re.compile('\A[^-+~][^:,\s]*\Z')
+USERNAME_PATTERN_DEBIAN = re.compile(r'\A[^-+~][^:,\s]*\Z')
 
 # It appears that most printable ascii is valid, excluding whitespace, #, and commas.
 # There doesn't seem to be any practical size limits of an SSH Certificate Principal (> 4096B allowed).
