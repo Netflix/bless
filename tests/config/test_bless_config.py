@@ -25,7 +25,7 @@ from bless.config.bless_config import BlessConfig, \
     USERNAME_VALIDATION_DEFAULT, \
     REMOTE_USERNAMES_VALIDATION_OPTION, \
     CA_PRIVATE_KEY_COMPRESSION_OPTION, \
-    CA_PRIVATE_KEY_COMPRESSION_OPTION_DEFAULT
+    CA_PRIVATE_KEY_COMPRESSION_OPTION_DEFAULT, VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION
 
 
 def test_empty_config():
@@ -196,3 +196,13 @@ def test_configs(config, region, expected_cert_valid, expected_entropy_min, expe
                                                       USERNAME_VALIDATION_OPTION)
     assert expected_key_compression == config.get(BLESS_CA_SECTION,
                                                   CA_PRIVATE_KEY_COMPRESSION_OPTION)
+
+def test_kms_config_opts(monkeypatch):
+    # Default option
+    config = BlessConfig("us-east-1", config_file=os.path.join(os.path.dirname(__file__), 'full.cfg'))
+    assert config.getboolean(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION) is False
+
+    # Config file value
+    config = BlessConfig("us-east-1", config_file=os.path.join(os.path.dirname(__file__), 'full-with-kmsauth.cfg'))
+    assert config.getboolean(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION) is True
+    assert config.getboolean(KMSAUTH_SECTION, VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION) is False
