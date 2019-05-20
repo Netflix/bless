@@ -95,7 +95,7 @@ def test_zlib_compression_env_with_uncompressed_key(monkeypatch):
     extra_environment_variables = {
         'bless_ca_default_password': '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>',
         'bless_ca_ca_private_key_compression': 'zlib',
-        'bless_ca_ca_private_key': base64.b64encode(b'<INSERT_YOUR_ENCRYPTED_PEM_FILE_CONTENT>'),
+        'bless_ca_ca_private_key': str(base64.b64encode(b'<INSERT_YOUR_ENCRYPTED_PEM_FILE_CONTENT>'), encoding='ascii'),
     }
 
     for k, v in extra_environment_variables.items():

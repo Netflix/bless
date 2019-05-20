@@ -33,7 +33,7 @@ Cd to the bless repo:
 
 Create a virtualenv if you haven't already:
 
-    $ python3.6 -m venv venv
+    $ python3.7 -m venv venv
 
 Activate the venv:
 
@@ -55,33 +55,11 @@ Makefile includes a publish target to package up everything into a deploy-able .
 the expected locations.
 
 ### Compiling BLESS Lambda Dependencies
-AWS Lambda has some limitations, and to deploy code as a Lambda Function, you need to package up
-all of the dependencies.  AWS Lambda only supports Python 2.7 and BLESS depends on
-[Cryptography](https://cryptography.io/en/latest/), which must be compiled.  You will need to
+To deploy code as a Lambda Function, you need to package up all of the dependencies.  You will need to
 compile and include your dependencies before you can publish a working AWS Lambda.
 
-You can use a docker container running [Amazon Linux](https://hub.docker.com/_/amazonlinux):
+BLESS uses a docker container running [Amazon Linux 2](https://hub.docker.com/_/amazonlinux) to package everything up:
 - Execute ```make lambda-deps``` and this will run a container and save all the dependencies in ./aws_lambda_libs
-
-Alternatively you can:
-- Deploy an [Amazon Linux AMI](http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html)
-- SSH onto that instance
-- Copy BLESS' `setup.py` to the instance
-- Copy BLESS' `bless/__about__.py` to the instance at `bless/__about__.py`
-- Install BLESS' dependencies:
-```
-$ sudo yum install gcc libffi-devel openssl-devel
-$ virtualenv venv
-$ source venv/bin/activate
-(venv) $ pip install --upgrade pip setuptools
-(venv) $ pip install -e .
-```
-- From that instance, copy off the contents of:
-```
-$ cp -r venv/lib/python2.7/site-packages/. aws_lambda_libs
-$ cp -r venv/lib64/python2.7/site-packages/. aws_lambda_libs
-```
-- put those files in: ./aws_lambda_libs/
 
 ### Protecting the CA Private Key
 - Generate a password protected RSA Private Key:

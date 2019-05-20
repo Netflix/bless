@@ -185,7 +185,7 @@ class BlessConfig(configparser.RawConfigParser, object):
 
     @staticmethod
     def _environment_key(section, option):
-        return (re.sub('\W+', '_', section) + '_' + re.sub('\W+', '_', option)).lower()
+        return (re.sub(r'\W+', '_', section) + '_' + re.sub(r'\W+', '_', option)).lower()
 
     @staticmethod
     def _decompress(data, algorithm):

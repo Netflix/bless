@@ -5,6 +5,7 @@ test: lint
 
 develop:
 	@echo "--> Installing dependencies"
+	pip install --upgrade pip setuptools
 	pip install -r requirements.txt
 	pip install "file://`pwd`#egg=bless[tests]"
 	@echo ""
@@ -39,15 +40,10 @@ publish:
 	cd ./publish/bless_lambda && zip -FSr ../bless_lambda.zip .
 
 compile:
-	yum install -y gcc libffi-devel openssl-devel python36 python36-virtualenv
-	virtualenv-3.6 /tmp/venv
-	/tmp/venv/bin/pip install --upgrade pip setuptools
-	/tmp/venv/bin/pip install -e .
-	cp -r /tmp/venv/lib/python3.6/site-packages/. ./aws_lambda_libs
-	cp -r /tmp/venv/lib64/python3.6/site-packages/. ./aws_lambda_libs
+	./lambda_compile.sh
 
 lambda-deps:
 	@echo "--> Compiling lambda dependencies"
-	docker run --rm -v ${CURDIR}:/src -w /src amazonlinux:1 make compile
+	docker run --rm -v ${CURDIR}:/src -w /src amazonlinux:2 ./lambda_compile.sh
 
 .PHONY: develop dev-docs clean test lint coverage publish

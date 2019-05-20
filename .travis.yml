@@ -6,7 +6,7 @@ addons:
 
 matrix:
   include:
-    - python: "3.6"
+    - python: "3.7"
 
 install:
   - pip install coveralls

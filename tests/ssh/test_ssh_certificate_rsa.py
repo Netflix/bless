@@ -1,7 +1,7 @@
 import base64
 
 import pytest
-from cryptography.hazmat.primitives.serialization import _ssh_read_next_string
+from cryptography.hazmat.primitives.serialization.ssh import _ssh_read_next_string
 
 from bless.ssh.certificate_authorities.rsa_certificate_authority import RSACertificateAuthority
 from bless.ssh.certificates.rsa_certificate_builder import RSACertificateBuilder
