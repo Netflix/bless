@@ -52,7 +52,7 @@ Run the tests:
 To deploy an AWS Lambda Function, you need to provide a .zip with the code and all dependencies.
 The .zip must contain your lambda code and configurations at the top level of the .zip.  The BLESS
 Makefile includes a publish target to package up everything into a deploy-able .zip if they are in
-the expected locations.
+the expected locations.  You will need to setup your own Python 3.7 lambda to deploy the .zip to.
 
 ### Compiling BLESS Lambda Dependencies
 To deploy code as a Lambda Function, you need to package up all of the dependencies.  You will need to
@@ -140,6 +140,8 @@ random from kms (kms:GenerateRandom) and permissions for logging to CloudWatch L
 ## Using BLESS
 After you have [deployed BLESS](#deployment) you can run the sample [BLESS Client](bless_client/bless_client.py)
 from a system with access to the required [AWS Credentials](http://boto3.readthedocs.io/en/latest/guide/configuration.html).
+This client is really just a proof of concept to validate that you have a functional lambda being called with valid
+IAM credentials. 
 
     (venv) $ ./bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_usernames bastion_source_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>
 

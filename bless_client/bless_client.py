@@ -32,16 +32,16 @@ Usage:
         obtained by appending -cert.pub to identity filenames" e.g.  the <id_rsa.pub to sign>.
 """
 import json
+import os
 import stat
 import sys
 
 import boto3
-import os
 
 
 def main(argv):
     if len(argv) < 9 or len(argv) > 10:
-        print (
+        print(
             'Usage: bless_client.py region lambda_function_name bastion_user bastion_user_ip '
             'remote_usernames bastion_ips bastion_command <id_rsa.pub to sign> '
             '<output id_rsa-cert.pub> [kmsauth token]')
@@ -71,7 +71,7 @@ def main(argv):
     print('{}\n'.format(response['ResponseMetadata']))
 
     if response['StatusCode'] != 200:
-        print ('Error creating cert.')
+        print('Error creating cert.')
         return -1
 
     payload = json.loads(response['Payload'].read())
