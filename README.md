@@ -62,10 +62,11 @@ BLESS uses a docker container running [Amazon Linux 2](https://hub.docker.com/_/
 - Execute ```make lambda-deps``` and this will run a container and save all the dependencies in ./aws_lambda_libs
 
 ### Protecting the CA Private Key
-- Generate a password protected RSA Private Key:
+- Generate a password protected RSA Private Key in the PEM format:
 ```
-$ ssh-keygen -t rsa -b 4096 -f bless-ca- -C "SSH CA Key"
+$ ssh-keygen -t rsa -b 4096 -m PEM -f bless-ca- -C "SSH CA Key"
 ```
+- **Note:** OpenSSH Private Key format is not supported.
 - Use KMS to encrypt your password.  You will need a KMS key per region, and you will need to
 encrypt your password for each region.  You can use the AWS Console to paste in a simple lambda
 function like this:
