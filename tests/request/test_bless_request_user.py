@@ -1,7 +1,7 @@
 import pytest
 from bless.config.bless_config import USERNAME_VALIDATION_OPTION, REMOTE_USERNAMES_VALIDATION_OPTION, \
     REMOTE_USERNAMES_BLACKLIST_OPTION
-from bless.request.bless_request import validate_ips, validate_user, USERNAME_VALIDATION_OPTIONS, BlessUserSchema
+from bless.request.bless_request_user import validate_ips, validate_user, USERNAME_VALIDATION_OPTIONS, BlessUserSchema
 from marshmallow import ValidationError
 
 

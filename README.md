@@ -54,6 +54,14 @@ The .zip must contain your lambda code and configurations at the top level of th
 Makefile includes a publish target to package up everything into a deploy-able .zip if they are in
 the expected locations.  You will need to setup your own Python 3.7 lambda to deploy the .zip to.
 
+Previously the AWS Lambda Handler needed to be set to `bless_lambda.lambda_handler`, and this would generate a user 
+cert.  `bless_lambda.lambda_handler` still works for user certs.  `bless_lambda_user.lambda_handler_user` is a handler 
+that can also be used to issue user certificates.
+
+A new handler `bless_lambda_host.lambda_handler_host` has been created to allow for the creation of host SSH certs.
+
+All three handlers exist in the published .zip.
+
 ### Compiling BLESS Lambda Dependencies
 To deploy code as a Lambda Function, you need to package up all of the dependencies.  You will need to
 compile and include your dependencies before you can publish a working AWS Lambda.

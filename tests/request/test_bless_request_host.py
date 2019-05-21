@@ -1,5 +1,5 @@
 import pytest
-from bless.request.bless_request import validate_hostname, HOSTNAME_VALIDATION_OPTIONS, BlessHostSchema
+from bless.request.bless_request_host import HOSTNAME_VALIDATION_OPTIONS, BlessHostSchema, validate_hostname
 from marshmallow import ValidationError
 
 

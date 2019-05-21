@@ -1,19 +1,19 @@
 """
-.. module: bless.request.bless_request
+.. module: bless.request.bless_request_user
     :copyright: (c) 2016 by Netflix Inc., see AUTHORS for more
     :license: Apache, see LICENSE for more details.
 """
 import re
+from enum import Enum
 
 import ipaddress
-from enum import Enum
-from marshmallow import Schema, fields, post_load, ValidationError, validates_schema
-from marshmallow import validates
-from marshmallow.validate import Email, URL
-
 from bless.config.bless_config import USERNAME_VALIDATION_OPTION, REMOTE_USERNAMES_VALIDATION_OPTION, \
     USERNAME_VALIDATION_DEFAULT, REMOTE_USERNAMES_VALIDATION_DEFAULT, REMOTE_USERNAMES_BLACKLIST_OPTION, \
-    REMOTE_USERNAMES_BLACKLIST_DEFAULT, HOSTNAME_VALIDATION_OPTION, HOSTNAME_VALIDATION_DEFAULT
+    REMOTE_USERNAMES_BLACKLIST_DEFAULT
+from bless.request.bless_request_common import validate_ssh_public_key
+from marshmallow import Schema, fields, post_load, ValidationError, validates_schema
+from marshmallow import validates
+from marshmallow.validate import Email
 
 # man 8 useradd
 USERNAME_PATTERN = re.compile(r'[a-z_][a-z0-9_-]*[$]?\Z')
@@ -29,8 +29,6 @@ USERNAME_PATTERN_DEBIAN = re.compile(r'\A[^-+~][^:,\s]*\Z')
 # It appears that most printable ascii is valid, excluding whitespace, #, and commas.
 # There doesn't seem to be any practical size limits of an SSH Certificate Principal (> 4096B allowed).
 PRINCIPAL_PATTERN = re.compile(r'[\d\w!"$%&\'()*+\-./:;<=>?@\[\\\]\^`{|}~]+\Z')
-VALID_SSH_RSA_PUBLIC_KEY_HEADER = "ssh-rsa AAAAB3NzaC1yc2"
-VALID_SSH_ED25519_PUBLIC_KEY_HEADER = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5"
 
 USERNAME_VALIDATION_OPTIONS = Enum('UserNameValidationOptions',
                                    'useradd '  # Allowable usernames per 'man 8 useradd'
@@ -38,11 +36,6 @@ USERNAME_VALIDATION_OPTIONS = Enum('UserNameValidationOptions',
                                    'email '  # username is a valid email address.
                                    'principal '  # SSH Certificate Principal.  See 'man 5 sshd_config'.
                                    'disabled')  # no additional validation of the string.
-
-HOSTNAME_VALIDATION_OPTIONS = Enum('HostNameValidationOptions',
-                                   'url '  # Valid url format
-                                   'disabled'  # no validation
-)
 
 
 def validate_ips(ips):
@@ -87,22 +80,6 @@ def _validate_user_debian(user):
 def _validate_principal(principal):
     if PRINCIPAL_PATTERN.match(principal) is None:
         raise ValidationError('Principal contains invalid characters.')
-
-
-def validate_ssh_public_key(public_key):
-    if public_key.startswith(VALID_SSH_RSA_PUBLIC_KEY_HEADER) or public_key.startswith(VALID_SSH_ED25519_PUBLIC_KEY_HEADER):
-        pass
-    # todo other key types
-    else:
-        raise ValidationError('Invalid SSH Public Key.')
-
-
-def validate_hostname(hostname, hostname_validation):
-    if hostname_validation == HOSTNAME_VALIDATION_OPTIONS.disabled:
-        return
-    else:
-        validator = URL(require_tld=False, schemes='ssh', error='Invalid hostname "{input}".')
-        validator('ssh://{}'.format(hostname))
 
 
 class BlessUserSchema(Schema):
@@ -156,7 +133,7 @@ class BlessUserRequest:
         :param bastion_user: The user on the bastion, who is initiating the SSH request.
         :param bastion_user_ip: The IP of the user accessing the bastion.
         :param command: Text information about the SSH request of the user.
-        :param public_key_to_sign: The id_rsa.pub that will be used in the SSH request.  This is
+        :param public_key_to_sign: The id_XXX.pub that will be used in the SSH request.  This is
         enforced in the issued certificate.
         :param remote_usernames: Comma-separated list of username(s) or authorized principals on the remote
         server that will be used in the SSH request.  This is enforced in the issued certificate.
@@ -169,44 +146,6 @@ class BlessUserRequest:
         self.public_key_to_sign = public_key_to_sign
         self.remote_usernames = remote_usernames
         self.kmsauth_token = kmsauth_token
-
-    def __eq__(self, other):
-        return self.__dict__ == other.__dict__
-
-
-class BlessHostSchema(Schema):
-    hostnames = fields.Str(required=True)
-    public_key_to_sign = fields.Str(validate=validate_ssh_public_key, required=True)
-
-    @validates_schema(pass_original=True)
-    def check_unknown_fields(self, data, original_data):
-        unknown = set(original_data) - set(self.fields)
-        if unknown:
-            raise ValidationError('Unknown field', unknown)
-
-    @post_load
-    def make_bless_request(self, data):
-        return BlessHostRequest(**data)
-
-    @validates('hostnames')
-    def validate_hostnames(self, hostnames):
-        if HOSTNAME_VALIDATION_OPTION in self.context:
-            hostname_validation = HOSTNAME_VALIDATION_OPTIONS[self.context[HOSTNAME_VALIDATION_OPTION]]
-        else:
-            hostname_validation = HOSTNAME_VALIDATION_OPTIONS[HOSTNAME_VALIDATION_DEFAULT]
-        for hostname in hostnames.split(','):
-            validate_hostname(hostname, hostname_validation)
-
-
-class BlessHostRequest:
-    def __init__(self, hostnames, public_key_to_sign):
-        """
-        A BlessRequest must have the following key value pairs to be valid.
-        :param hostnames: The hostnames to make valid for this host certificate.
-        :param public_key_to_sign: The id_rsa.pub that will be used in the SSH request. This is enforced in the issued certificate.
-        """
-        self.hostnames = hostnames
-        self.public_key_to_sign = public_key_to_sign
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__

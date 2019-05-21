@@ -3,7 +3,8 @@ import zlib
 
 import pytest
 
-from bless.aws_lambda.bless_lambda import lambda_handler, lambda_handler_user
+from bless.aws_lambda.bless_lambda_user import lambda_handler_user
+from bless.aws_lambda.bless_lambda import lambda_handler
 from tests.ssh.vectors import EXAMPLE_RSA_PUBLIC_KEY, RSA_CA_PRIVATE_KEY_PASSWORD, \
     EXAMPLE_ED25519_PUBLIC_KEY, EXAMPLE_ECDSA_PUBLIC_KEY
 
