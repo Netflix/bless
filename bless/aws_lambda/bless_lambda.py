@@ -27,8 +27,11 @@ from bless.config.bless_config import BLESS_OPTIONS_SECTION, \
     CERTIFICATE_EXTENSIONS_OPTION, \
     REMOTE_USERNAMES_VALIDATION_OPTION, \
     IAM_GROUP_NAME_VALIDATION_FORMAT_OPTION, \
-    REMOTE_USERNAMES_BLACKLIST_OPTION
-from bless.request.bless_request import BlessSchema
+    REMOTE_USERNAMES_BLACKLIST_OPTION, \
+    HOSTNAME_VALIDATION_OPTION, \
+    SERVER_CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION, \
+    SERVER_CERTIFICATE_VALIDITY_AFTER_SEC_OPTION
+from bless.request.bless_request import BlessHostSchema, BlessUserSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
 from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
@@ -39,7 +42,17 @@ from marshmallow.exceptions import ValidationError
 global_bless_cache = None
 
 
-def lambda_handler(event, context=None, ca_private_key_password=None, entropy_check=True, config_file=None):
+def lambda_handler(*args, **kwargs):
+    """
+    Wrapper around lambda_handler_user for backwards compatibility
+    """
+    return lambda_handler_user(*args, **kwargs)
+
+
+def lambda_handler_user(
+        event, context=None, ca_private_key_password=None,
+        entropy_check=True,
+        config_file=None):
     """
     This is the function that will be called when the lambda function starts.
     :param event: Dictionary of the json request.
@@ -52,15 +65,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None, entropy_ch
     :param config_file: The config file to load the SSH CA private key from, and additional settings.
     :return: the SSH Certificate that can be written to id_rsa-cert.pub or similar file.
     """
-    # For testing, ignore the static bless_cache, otherwise fill the cache one time.
-    global global_bless_cache
-    if ca_private_key_password is not None or config_file is not None:
-        bless_cache = BlessLambdaCache(ca_private_key_password, config_file)
-    elif global_bless_cache is None:
-        global_bless_cache = BlessLambdaCache(config_file=os.path.join(os.path.dirname(__file__), 'bless_deploy.cfg'))
-        bless_cache = global_bless_cache
-    else:
-        bless_cache = global_bless_cache
+    bless_cache = setup_lambda_cache(ca_private_key_password, config_file)
 
     # AWS Region determines configs related to KMS
     region = bless_cache.region
@@ -68,25 +73,17 @@ def lambda_handler(event, context=None, ca_private_key_password=None, entropy_ch
     # Load the deployment config values
     config = bless_cache.config
 
-    logging_level = config.get(BLESS_OPTIONS_SECTION, LOGGING_LEVEL_OPTION)
-    numeric_level = getattr(logging, logging_level.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: {}'.format(logging_level))
-
-    logger = logging.getLogger()
-    logger.setLevel(numeric_level)
+    logger = set_logger(config)
 
     certificate_validity_before_seconds = config.getint(BLESS_OPTIONS_SECTION,
                                                         CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION)
     certificate_validity_after_seconds = config.getint(BLESS_OPTIONS_SECTION,
                                                        CERTIFICATE_VALIDITY_AFTER_SEC_OPTION)
-    entropy_minimum_bits = config.getint(BLESS_OPTIONS_SECTION, ENTROPY_MINIMUM_BITS_OPTION)
-    random_seed_bytes = config.getint(BLESS_OPTIONS_SECTION, RANDOM_SEED_BYTES_OPTION)
     ca_private_key = config.getprivatekey()
     certificate_extensions = config.get(BLESS_OPTIONS_SECTION, CERTIFICATE_EXTENSIONS_OPTION)
 
     # Process cert request
-    schema = BlessSchema(strict=True)
+    schema = BlessUserSchema(strict=True)
     schema.context[USERNAME_VALIDATION_OPTION] = config.get(BLESS_OPTIONS_SECTION, USERNAME_VALIDATION_OPTION)
     schema.context[REMOTE_USERNAMES_VALIDATION_OPTION] = config.get(BLESS_OPTIONS_SECTION,
                                                                     REMOTE_USERNAMES_VALIDATION_OPTION)
@@ -112,20 +109,7 @@ def lambda_handler(event, context=None, ca_private_key_password=None, entropy_ch
 
     # if running as a Lambda, we can check the entropy pool and seed it with KMS if desired
     if entropy_check:
-        with open('/proc/sys/kernel/random/entropy_avail', 'r') as f:
-            entropy = int(f.read())
-            logger.debug(entropy)
-            if entropy < entropy_minimum_bits:
-                logger.info(
-                    'System entropy was {}, which is lower than the entropy_'
-                    'minimum {}.  Using KMS to seed /dev/urandom'.format(
-                        entropy, entropy_minimum_bits))
-                kms_client = boto3.client('kms', region_name=bless_cache.region)
-                response = kms_client.generate_random(
-                    NumberOfBytes=random_seed_bytes)
-                random_seed = response['Plaintext']
-                with open('/dev/urandom', 'w') as urandom:
-                    urandom.write(random_seed)
+        check_entropy(config, logger)
 
     # cert values determined only by lambda and its configs
     current_time = int(time.time())
@@ -227,6 +211,92 @@ def lambda_handler(event, context=None, ca_private_key_password=None, entropy_ch
     return success_response(cert)
 
 
+def lambda_handler_host(
+        event, context=None, ca_private_key_password=None,
+        entropy_check=True,
+        config_file=None):
+    """
+    This is the function that will be called when the lambda function starts.
+    :param event: Dictionary of the json request.
+    :param context: AWS LambdaContext Object
+    http://docs.aws.amazon.com/lambda/latest/dg/python-context-object.html
+    :param ca_private_key_password: For local testing, if the password is provided, skip the KMS
+    decrypt.
+    :param entropy_check: For local testing, if set to false, it will skip checking entropy and
+    won't try to fetch additional random from KMS.
+    :param config_file: The config file to load the SSH CA private key from, and additional settings.
+    :return: the SSH Certificate that can be written to id_rsa-cert.pub or similar file.
+    """
+    bless_cache = setup_lambda_cache(ca_private_key_password, config_file)
+
+    # Load the deployment config values
+    config = bless_cache.config
+
+    logger = set_logger(config)
+
+    certificate_validity_before_seconds = config.getint(BLESS_OPTIONS_SECTION,
+                                                        SERVER_CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION)
+    certificate_validity_after_seconds = config.getint(BLESS_OPTIONS_SECTION,
+                                                       SERVER_CERTIFICATE_VALIDITY_AFTER_SEC_OPTION)
+
+    ca_private_key = config.getprivatekey()
+
+    # Process cert request
+    schema = BlessHostSchema(strict=True)
+    schema.context[HOSTNAME_VALIDATION_OPTION] = config.get(BLESS_OPTIONS_SECTION, HOSTNAME_VALIDATION_OPTION)
+
+    try:
+        request = schema.load(event).data
+    except ValidationError as e:
+        return error_response('InputValidationError', str(e))
+
+    # todo: You'll want to bring your own hostnames validation.
+    logger.info('Bless lambda invoked by [public_key: {}] for hostnames[{}]'.format(request.public_key_to_sign,
+                                                                                    request.hostnames))
+
+    # Make sure we have the ca private key password
+    if bless_cache.ca_private_key_password is None:
+        return error_response('ClientError', bless_cache.ca_private_key_password_error)
+    else:
+        ca_private_key_password = bless_cache.ca_private_key_password
+
+    # if running as a Lambda, we can check the entropy pool and seed it with KMS if desired
+    if entropy_check:
+        check_entropy(config, logger)
+
+    # cert values determined only by lambda and its configs
+    current_time = int(time.time())
+    valid_before = current_time + certificate_validity_after_seconds
+    valid_after = current_time - certificate_validity_before_seconds
+
+    # Build the cert
+    ca = get_ssh_certificate_authority(ca_private_key, ca_private_key_password)
+    cert_builder = get_ssh_certificate_builder(ca, SSHCertificateType.HOST,
+                                               request.public_key_to_sign)
+
+    for hostname in request.hostnames.split(','):
+        cert_builder.add_valid_principal(hostname)
+
+    cert_builder.set_valid_before(valid_before)
+    cert_builder.set_valid_after(valid_after)
+
+    # cert_builder is needed to obtain the SSH public key's fingerprint
+    key_id = 'request[{}] ssh_key[{}] ca[{}] valid_to[{}]'.format(
+        context.aws_request_id, cert_builder.ssh_public_key.fingerprint, context.invoked_function_arn,
+        time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_before))
+    )
+
+    cert_builder.set_key_id(key_id)
+    cert = cert_builder.get_cert_file()
+
+    logger.info(
+        'Issued a server cert to hostnames[{}] with key_id[{}] and '
+        'valid_from[{}])'.format(
+            request.hostnames, key_id,
+            time.strftime("%Y/%m/%d %H:%M:%S", time.gmtime(valid_after))))
+    return success_response(cert)
+
+
 def success_response(cert):
     return {
         'certificate': cert
@@ -238,3 +308,51 @@ def error_response(error_type, error_message):
         'errorType': error_type,
         'errorMessage': error_message
     }
+
+
+def set_logger(config):
+    logging_level = config.get(BLESS_OPTIONS_SECTION, LOGGING_LEVEL_OPTION)
+    numeric_level = getattr(logging, logging_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: {}'.format(logging_level))
+
+    logger = logging.getLogger()
+    logger.setLevel(numeric_level)
+    return logger
+
+
+def check_entropy(config, logger):
+    """
+    Check the entropy pool and seed it with KMS if desired
+    """
+    region = os.environ['AWS_REGION']
+    kms_client = boto3.client('kms', region_name=region)
+    entropy_minimum_bits = config.getint(BLESS_OPTIONS_SECTION, ENTROPY_MINIMUM_BITS_OPTION)
+    random_seed_bytes = config.getint(BLESS_OPTIONS_SECTION, RANDOM_SEED_BYTES_OPTION)
+
+    with open('/proc/sys/kernel/random/entropy_avail', 'r') as f:
+        entropy = int(f.read())
+        logger.debug(entropy)
+        if entropy < entropy_minimum_bits:
+            logger.info(
+                'System entropy was {}, which is lower than the entropy_'
+                'minimum {}.  Using KMS to seed /dev/urandom'.format(
+                    entropy, entropy_minimum_bits))
+            response = kms_client.generate_random(
+                NumberOfBytes=random_seed_bytes)
+            random_seed = response['Plaintext']
+            with open('/dev/urandom', 'w') as urandom:
+                urandom.write(random_seed)
+
+
+def setup_lambda_cache(ca_private_key_password, config_file):
+    # For testing, ignore the static bless_cache, otherwise fill the cache one time.
+    global global_bless_cache
+    if ca_private_key_password is not None or config_file is not None:
+        bless_cache = BlessLambdaCache(ca_private_key_password, config_file)
+    elif global_bless_cache is None:
+        global_bless_cache = BlessLambdaCache(config_file=os.path.join(os.path.dirname(__file__), 'bless_deploy.cfg'))
+        bless_cache = global_bless_cache
+    else:
+        bless_cache = global_bless_cache
+    return bless_cache

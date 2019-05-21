@@ -9,11 +9,11 @@ import ipaddress
 from enum import Enum
 from marshmallow import Schema, fields, post_load, ValidationError, validates_schema
 from marshmallow import validates
-from marshmallow.validate import Email
+from marshmallow.validate import Email, URL
 
 from bless.config.bless_config import USERNAME_VALIDATION_OPTION, REMOTE_USERNAMES_VALIDATION_OPTION, \
     USERNAME_VALIDATION_DEFAULT, REMOTE_USERNAMES_VALIDATION_DEFAULT, REMOTE_USERNAMES_BLACKLIST_OPTION, \
-    REMOTE_USERNAMES_BLACKLIST_DEFAULT
+    REMOTE_USERNAMES_BLACKLIST_DEFAULT, HOSTNAME_VALIDATION_OPTION, HOSTNAME_VALIDATION_DEFAULT
 
 # man 8 useradd
 USERNAME_PATTERN = re.compile(r'[a-z_][a-z0-9_-]*[$]?\Z')
@@ -38,6 +38,11 @@ USERNAME_VALIDATION_OPTIONS = Enum('UserNameValidationOptions',
                                    'email '  # username is a valid email address.
                                    'principal '  # SSH Certificate Principal.  See 'man 5 sshd_config'.
                                    'disabled')  # no additional validation of the string.
+
+HOSTNAME_VALIDATION_OPTIONS = Enum('HostNameValidationOptions',
+                                   'url '  # Valid url format
+                                   'disabled'  # no validation
+)
 
 
 def validate_ips(ips):
@@ -92,7 +97,15 @@ def validate_ssh_public_key(public_key):
         raise ValidationError('Invalid SSH Public Key.')
 
 
-class BlessSchema(Schema):
+def validate_hostname(hostname, hostname_validation):
+    if hostname_validation == HOSTNAME_VALIDATION_OPTIONS.disabled:
+        return
+    else:
+        validator = URL(require_tld=False, schemes='ssh', error='Invalid hostname "{input}".')
+        validator('ssh://{}'.format(hostname))
+
+
+class BlessUserSchema(Schema):
     bastion_ips = fields.Str(validate=validate_ips, required=True)
     bastion_user = fields.Str(required=True)
     bastion_user_ip = fields.Str(validate=validate_ips, required=True)
@@ -109,7 +122,7 @@ class BlessSchema(Schema):
 
     @post_load
     def make_bless_request(self, data):
-        return BlessRequest(**data)
+        return BlessUserRequest(**data)
 
     @validates('bastion_user')
     def validate_bastion_user(self, user):
@@ -133,7 +146,7 @@ class BlessSchema(Schema):
             validate_user(remote_username, username_validation, username_blacklist)
 
 
-class BlessRequest:
+class BlessUserRequest:
     def __init__(self, bastion_ips, bastion_user, bastion_user_ip, command, public_key_to_sign,
                  remote_usernames, kmsauth_token=None):
         """
@@ -156,6 +169,44 @@ class BlessRequest:
         self.public_key_to_sign = public_key_to_sign
         self.remote_usernames = remote_usernames
         self.kmsauth_token = kmsauth_token
+
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+
+class BlessHostSchema(Schema):
+    hostnames = fields.Str(required=True)
+    public_key_to_sign = fields.Str(validate=validate_ssh_public_key, required=True)
+
+    @validates_schema(pass_original=True)
+    def check_unknown_fields(self, data, original_data):
+        unknown = set(original_data) - set(self.fields)
+        if unknown:
+            raise ValidationError('Unknown field', unknown)
+
+    @post_load
+    def make_bless_request(self, data):
+        return BlessHostRequest(**data)
+
+    @validates('hostnames')
+    def validate_hostnames(self, hostnames):
+        if HOSTNAME_VALIDATION_OPTION in self.context:
+            hostname_validation = HOSTNAME_VALIDATION_OPTIONS[self.context[HOSTNAME_VALIDATION_OPTION]]
+        else:
+            hostname_validation = HOSTNAME_VALIDATION_OPTIONS[HOSTNAME_VALIDATION_DEFAULT]
+        for hostname in hostnames.split(','):
+            validate_hostname(hostname, hostname_validation)
+
+
+class BlessHostRequest:
+    def __init__(self, hostnames, public_key_to_sign):
+        """
+        A BlessRequest must have the following key value pairs to be valid.
+        :param hostnames: The hostnames to make valid for this host certificate.
+        :param public_key_to_sign: The id_rsa.pub that will be used in the SSH request. This is enforced in the issued certificate.
+        """
+        self.hostnames = hostnames
+        self.public_key_to_sign = public_key_to_sign
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__

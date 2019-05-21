@@ -6,7 +6,7 @@ ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__)))
 
 about = {}
 with open(os.path.join(ROOT, "bless", "__about__.py")) as f:
-    exec (f.read(), about)
+    exec(f.read(), about)
 
 setup(
     name=about["__title__"],
