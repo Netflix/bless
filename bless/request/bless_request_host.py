@@ -52,7 +52,7 @@ class BlessHostRequest:
     def __init__(self, hostnames, public_key_to_sign):
         """
         A BlessRequest must have the following key value pairs to be valid.
-        :param hostnames: Comma-separated list of hostnames (s) to include in this host certificate.
+        :param hostnames: Comma-separated list of hostname(s) to include in this host certificate.
         :param public_key_to_sign: The id_XXX.pub that will be used in the SSH request. This is enforced in the issued certificate.
         """
         self.hostnames = hostnames
