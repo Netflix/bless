@@ -3,6 +3,7 @@ import zlib
 
 import pytest
 
+from bless.aws_lambda.bless_lambda_user import lambda_handler_user
 from bless.aws_lambda.bless_lambda import lambda_handler
 from tests.ssh.vectors import EXAMPLE_RSA_PUBLIC_KEY, RSA_CA_PRIVATE_KEY_PASSWORD, \
     EXAMPLE_ED25519_PUBLIC_KEY, EXAMPLE_ECDSA_PUBLIC_KEY
@@ -162,8 +163,16 @@ INVALID_TEST_REQUEST_BLACKLISTED_REMOTE_USERNAME = {
 }
 
 
-def test_basic_local_request():
+def test_basic_local_request_with_wrapper():
     output = lambda_handler(VALID_TEST_REQUEST, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_basic_local_request():
+    output = lambda_handler_user(VALID_TEST_REQUEST, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
@@ -171,7 +180,7 @@ def test_basic_local_request():
 
 
 def test_basic_local_request_ed2551():
-    output = lambda_handler(VALID_TEST_REQUEST_ED2551, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST_ED2551, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
@@ -179,7 +188,7 @@ def test_basic_local_request_ed2551():
 
 
 def test_basic_local_unused_kmsauth_request():
-    output = lambda_handler(VALID_TEST_REQUEST_KMSAUTH, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST_KMSAUTH, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
@@ -187,7 +196,7 @@ def test_basic_local_unused_kmsauth_request():
 
 
 def test_basic_local_missing_kmsauth_request():
-    output = lambda_handler(VALID_TEST_REQUEST, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -206,7 +215,7 @@ def test_basic_local_username_validation_disabled(monkeypatch):
     for k, v in extra_environment_variables.items():
         monkeypatch.setenv(k, v)
 
-    output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_DISABLED, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST_USERNAME_VALIDATION_DISABLED, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), ''))
@@ -224,7 +233,7 @@ def test_basic_local_username_validation_email_remote_usernames_useradd(monkeypa
     for k, v in extra_environment_variables.items():
         monkeypatch.setenv(k, v)
 
-    output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), ''))
@@ -243,7 +252,7 @@ def test_basic_ca_private_key_file_bz2(monkeypatch):
     for k, v in extra_environment_variables.items():
         monkeypatch.setenv(k, v)
 
-    output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), ''))
@@ -262,7 +271,7 @@ def test_basic_ca_private_key_env_bz2(monkeypatch):
     for k, v in extra_environment_variables.items():
         monkeypatch.setenv(k, v)
 
-    output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), ''))
@@ -281,11 +290,12 @@ def test_basic_ca_private_key_file_zlib(monkeypatch):
     for k, v in extra_environment_variables.items():
         monkeypatch.setenv(k, v)
 
-    output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), ''))
     assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
 
 def test_basic_ca_private_key_env_zlib(monkeypatch):
     extra_environment_variables = {
@@ -299,7 +309,7 @@ def test_basic_ca_private_key_env_zlib(monkeypatch):
     for k, v in extra_environment_variables.items():
         monkeypatch.setenv(k, v)
 
-    output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), ''))
@@ -318,7 +328,7 @@ def test_basic_ca_private_key_file_none_compression(monkeypatch):
     for k, v in extra_environment_variables.items():
         monkeypatch.setenv(k, v)
 
-    output = lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), ''))
@@ -338,10 +348,10 @@ def test_invalid_uncompressed_with_zlib(monkeypatch):
         monkeypatch.setenv(k, v)
 
     with pytest.raises(zlib.error):
-        lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
-                                ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
-                                entropy_check=False,
-                                config_file=os.path.join(os.path.dirname(__file__), ''))
+        lambda_handler_user(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), ''))
 
 
 def test_invalid_uncompressed_with_bz2(monkeypatch):
@@ -357,14 +367,14 @@ def test_invalid_uncompressed_with_bz2(monkeypatch):
         monkeypatch.setenv(k, v)
 
     with pytest.raises(OSError):
-        lambda_handler(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
+        lambda_handler_user(VALID_TEST_REQUEST_USERNAME_VALIDATION_EMAIL_REMOTE_USERNAMES_USERADD, context=Context,
                        ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                        entropy_check=False,
                        config_file=os.path.join(os.path.dirname(__file__), ''))
 
 
 def test_invalid_username_request():
-    output = lambda_handler(INVALID_TEST_REQUEST_USERNAME_INVALID, context=Context,
+    output = lambda_handler_user(INVALID_TEST_REQUEST_USERNAME_INVALID, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -373,7 +383,7 @@ def test_invalid_username_request():
 
 
 def test_invalid_kmsauth_request():
-    output = lambda_handler(VALID_TEST_REQUEST_KMSAUTH, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST_KMSAUTH, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -382,7 +392,7 @@ def test_invalid_kmsauth_request():
 
 
 def test_invalid_request():
-    output = lambda_handler(INVALID_TEST_REQUEST, context=Context,
+    output = lambda_handler_user(INVALID_TEST_REQUEST, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
@@ -391,7 +401,7 @@ def test_invalid_request():
 
 def test_local_request_key_not_found():
     with pytest.raises(IOError):
-        lambda_handler(VALID_TEST_REQUEST, context=Context,
+        lambda_handler_user(VALID_TEST_REQUEST, context=Context,
                        ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                        entropy_check=False,
                        config_file=os.path.join(os.path.dirname(__file__), 'bless-test-broken.cfg'))
@@ -399,14 +409,14 @@ def test_local_request_key_not_found():
 
 def test_local_request_config_not_found():
     with pytest.raises(ValueError):
-        lambda_handler(VALID_TEST_REQUEST, context=Context,
+        lambda_handler_user(VALID_TEST_REQUEST, context=Context,
                        ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                        entropy_check=False,
                        config_file=os.path.join(os.path.dirname(__file__), 'none'))
 
 
 def test_local_request_invalid_pub_key():
-    output = lambda_handler(INVALID_TEST_REQUEST_KEY_TYPE, context=Context,
+    output = lambda_handler_user(INVALID_TEST_REQUEST_KEY_TYPE, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
@@ -414,7 +424,7 @@ def test_local_request_invalid_pub_key():
 
 
 def test_local_request_extra_field():
-    output = lambda_handler(INVALID_TEST_REQUEST_EXTRA_FIELD, context=Context,
+    output = lambda_handler_user(INVALID_TEST_REQUEST_EXTRA_FIELD, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
@@ -422,7 +432,7 @@ def test_local_request_extra_field():
 
 
 def test_local_request_missing_field():
-    output = lambda_handler(INVALID_TEST_REQUEST_MISSING_FIELD, context=Context,
+    output = lambda_handler_user(INVALID_TEST_REQUEST_MISSING_FIELD, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
@@ -430,7 +440,7 @@ def test_local_request_missing_field():
 
 
 def test_local_request_with_test_user():
-    output = lambda_handler(VALID_TEST_REQUEST, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), 'bless-test-with-test-user.cfg'))
@@ -438,7 +448,7 @@ def test_local_request_with_test_user():
 
 
 def test_local_request_with_custom_certificate_extensions():
-    output = lambda_handler(VALID_TEST_REQUEST, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -447,7 +457,7 @@ def test_local_request_with_custom_certificate_extensions():
 
 
 def test_local_request_with_empty_certificate_extensions():
-    output = lambda_handler(VALID_TEST_REQUEST, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -456,7 +466,7 @@ def test_local_request_with_empty_certificate_extensions():
 
 
 def test_local_request_with_multiple_principals():
-    output = lambda_handler(VALID_TEST_REQUEST_MULTIPLE_PRINCIPALS, context=Context,
+    output = lambda_handler_user(VALID_TEST_REQUEST_MULTIPLE_PRINCIPALS, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -465,7 +475,7 @@ def test_local_request_with_multiple_principals():
 
 
 def test_invalid_request_with_multiple_principals():
-    output = lambda_handler(INVALID_TEST_REQUEST_MULTIPLE_PRINCIPALS, context=Context,
+    output = lambda_handler_user(INVALID_TEST_REQUEST_MULTIPLE_PRINCIPALS, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -478,7 +488,7 @@ def test_invalid_request_with_mismatched_bastion_and_remote():
     Test default kmsauth behavior, that a bastion_user and remote_usernames must match
     :return: 
     '''
-    output = lambda_handler(INVALID_TEST_KMSAUTH_REQUEST_USERNAME_DOESNT_MATCH_REMOTE, context=Context,
+    output = lambda_handler_user(INVALID_TEST_KMSAUTH_REQUEST_USERNAME_DOESNT_MATCH_REMOTE, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -487,7 +497,7 @@ def test_invalid_request_with_mismatched_bastion_and_remote():
 
 
 def test_invalid_request_with_unallowed_remote():
-    output = lambda_handler(INVALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
+    output = lambda_handler_user(INVALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -497,7 +507,7 @@ def test_invalid_request_with_unallowed_remote():
 
 def test_valid_request_with_allowed_remote(mocker):
     mocker.patch("kmsauth.KMSTokenValidator.decrypt_token")
-    output = lambda_handler(VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
+    output = lambda_handler_user(VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -508,10 +518,10 @@ def test_valid_request_with_allowed_remote(mocker):
 def test_valid_request_with_allowed_remote_and_allowed_iam_group(mocker):
     mocker.patch("kmsauth.KMSTokenValidator.decrypt_token")
     clientmock = mocker.MagicMock()
-    clientmock.list_groups_for_user.return_value = {"Groups":[{"GroupName":"ssh-alloweduser"}]}
+    clientmock.list_groups_for_user.return_value = {"Groups": [{"GroupName": "ssh-alloweduser"}]}
     botomock = mocker.patch('boto3.client')
     botomock.return_value = clientmock
-    output = lambda_handler(VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
+    output = lambda_handler_user(VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -525,7 +535,7 @@ def test_invalid_request_with_allowed_remote_and_not_allowed_iam_group(mocker):
     clientmock.list_groups_for_user.return_value = {"Groups": [{"GroupName": "ssh-notalloweduser"}]}
     botomock = mocker.patch('boto3.client')
     botomock.return_value = clientmock
-    output = lambda_handler(VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
+    output = lambda_handler_user(VALID_TEST_KMSAUTH_REQUEST_DIFFERENT_REMOTE_USER, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
@@ -541,7 +551,7 @@ def test_basic_local_request_blacklisted(monkeypatch):
     for k, v in extra_environment_variables.items():
         monkeypatch.setenv(k, v)
 
-    output = lambda_handler(INVALID_TEST_REQUEST_BLACKLISTED_REMOTE_USERNAME, context=Context,
+    output = lambda_handler_user(INVALID_TEST_REQUEST_BLACKLISTED_REMOTE_USERNAME, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))

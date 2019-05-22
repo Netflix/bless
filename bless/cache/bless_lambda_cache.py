@@ -1,3 +1,8 @@
+"""
+.. module: bless.cache.bless_lambda_cache
+    :copyright: (c) 2016 by Netflix Inc., see AUTHORS for more
+    :license: Apache, see LICENSE for more details.
+"""
 import base64
 import os
 
