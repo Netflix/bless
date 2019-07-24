@@ -18,11 +18,11 @@ setup(
     license=about["__license__"],
     packages=find_packages(exclude=["test*"]),
     install_requires=[
-        'boto3',
-        'cryptography',
-        'ipaddress',
-        'marshmallow',
-        'kmsauth'
+        'boto3==1.9.151',
+        'cryptography==2.6.1',
+        'ipaddress==1.0.22',
+        'marshmallow==2.19.2',
+        'kmsauth==0.3.0'
     ],
     extras_require={
         'tests': [
