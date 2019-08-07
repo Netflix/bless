@@ -90,6 +90,7 @@ class BlessUserSchema(Schema):
     public_key_to_sign = fields.Str(validate=validate_ssh_public_key, required=True)
     remote_usernames = fields.Str(required=True)
     kmsauth_token = fields.Str(required=False)
+    jwtauth_token = fields.Str(required=False)
 
     @validates_schema(pass_original=True)
     def check_unknown_fields(self, data, original_data):
@@ -125,7 +126,7 @@ class BlessUserSchema(Schema):
 
 class BlessUserRequest:
     def __init__(self, bastion_ips, bastion_user, bastion_user_ip, command, public_key_to_sign,
-                 remote_usernames, kmsauth_token=None):
+                 remote_usernames, kmsauth_token=None, jwtauth_token=None):
         """
         A BlessRequest must have the following key value pairs to be valid.
         :param bastion_ips: The source IPs where the SSH connection will be initiated from.  This is
@@ -138,6 +139,7 @@ class BlessUserRequest:
         :param remote_usernames: Comma-separated list of username(s) or authorized principals on the remote
         server that will be used in the SSH request.  This is enforced in the issued certificate.
         :param kmsauth_token: An optional kms auth token to authenticate the user.
+        :param jwtauth_token: An optional jwt token to authenticate the user.
         """
         self.bastion_ips = bastion_ips
         self.bastion_user = bastion_user
@@ -146,6 +148,7 @@ class BlessUserRequest:
         self.public_key_to_sign = public_key_to_sign
         self.remote_usernames = remote_usernames
         self.kmsauth_token = kmsauth_token
+        self.jwtauth_token = jwtauth_token
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__

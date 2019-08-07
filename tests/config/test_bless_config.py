@@ -20,6 +20,13 @@ from bless.config.bless_config import BlessConfig, \
     KMSAUTH_USEKMSAUTH_OPTION, \
     KMSAUTH_KEY_ID_OPTION, \
     KMSAUTH_SERVICE_ID_OPTION, \
+    JWTAUTH_SECTION, \
+    JWTAUTH_USEJWTAUTH_OPTION, \
+    JWTAUTH_SIGNATURE_JWK_OPTION, \
+    JWTAUTH_SIGNATURE_ALGORITHM_OPTION, \
+    JWTAUTH_USERNAME_CLAIM_OPTION, \
+    JWTAUTH_ISSUER_OPTION, \
+    JWTAUTH_AUDIENCE_OPTION, \
     CERTIFICATE_EXTENSIONS_OPTION, \
     USERNAME_VALIDATION_OPTION, \
     USERNAME_VALIDATION_DEFAULT, \
@@ -142,6 +149,11 @@ def test_config_environment_override(monkeypatch):
         'kms_auth_use_kmsauth': 'True',
         'kms_auth_kmsauth_key_id': '<INSERT_ARN>',
         'kms_auth_kmsauth_serviceid': 'bless-test',
+
+        'jwt_auth_use_jwtauth': 'True',
+        'jwt_auth_jwtauth_signature_jwk': '{"kid":"key1"}',
+        'jwt_auth_jwtauth_issuer': 'bless-issuer',
+        'jwt_auth_jwtauth_audience': 'bless-audience',
     }
 
     for k, v in extra_environment_variables.items():
@@ -169,6 +181,11 @@ def test_config_environment_override(monkeypatch):
     assert config.getboolean(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION)
     assert '<INSERT_ARN>' == config.get(KMSAUTH_SECTION, KMSAUTH_KEY_ID_OPTION)
     assert 'bless-test' == config.get(KMSAUTH_SECTION, KMSAUTH_SERVICE_ID_OPTION)
+
+    assert config.getboolean(JWTAUTH_SECTION, JWTAUTH_USEJWTAUTH_OPTION)
+    assert '{"kid":"key1"}' == config.get(JWTAUTH_SECTION, JWTAUTH_SIGNATURE_JWK_OPTION)
+    assert 'bless-issuer' == config.get(JWTAUTH_SECTION, JWTAUTH_ISSUER_OPTION)
+    assert 'bless-audience' == config.get(JWTAUTH_SECTION, JWTAUTH_AUDIENCE_OPTION)
 
     config.aws_region = 'invalid'
     assert '<INSERT_DEFAULT_KMS_ENCRYPTED_BASE64_ENCODED_PEM_PASSWORD_HERE>' == config.getpassword()
@@ -242,3 +259,19 @@ def test_kms_config_opts(monkeypatch):
     config = BlessConfig("us-east-1", config_file=os.path.join(os.path.dirname(__file__), 'full-with-kmsauth.cfg'))
     assert config.getboolean(KMSAUTH_SECTION, KMSAUTH_USEKMSAUTH_OPTION) is True
     assert config.getboolean(KMSAUTH_SECTION, VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION) is False
+
+def test_jwt_config_opts(monkeypatch):
+    # Default option
+    config = BlessConfig("us-east-1", config_file=os.path.join(os.path.dirname(__file__), 'full.cfg'))
+    assert config.getboolean(JWTAUTH_SECTION, JWTAUTH_USEJWTAUTH_OPTION) is False
+    assert config.get(JWTAUTH_SECTION, JWTAUTH_SIGNATURE_ALGORITHM_OPTION) == 'RS256'
+    assert config.get(JWTAUTH_SECTION, JWTAUTH_USERNAME_CLAIM_OPTION) == 'email'
+
+    # Config file value
+    config = BlessConfig("us-east-1", config_file=os.path.join(os.path.dirname(__file__), 'full-with-jwtauth.cfg'))
+    assert config.getboolean(JWTAUTH_SECTION, JWTAUTH_USEJWTAUTH_OPTION) is True
+    assert config.get(JWTAUTH_SECTION, JWTAUTH_SIGNATURE_JWK_OPTION) == '{"kty": "RSA","e": "...","use": "sig","kid": "...","alg": "RS256","n": "..."}'
+    assert config.get(JWTAUTH_SECTION, JWTAUTH_SIGNATURE_ALGORITHM_OPTION) == 'ABCD'
+    assert config.get(JWTAUTH_SECTION, JWTAUTH_USERNAME_CLAIM_OPTION) == 'username'
+    assert config.get(JWTAUTH_SECTION, JWTAUTH_ISSUER_OPTION) == 'https://issuer.example.com'
+    assert config.get(JWTAUTH_SECTION, JWTAUTH_AUDIENCE_OPTION) == '6c1d8893-9240-4f87-be95-1f21ef664ce0'

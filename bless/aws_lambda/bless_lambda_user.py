@@ -17,6 +17,13 @@ from bless.config.bless_config import BLESS_OPTIONS_SECTION, \
     KMSAUTH_REMOTE_USERNAMES_ALLOWED_OPTION, \
     VALIDATE_REMOTE_USERNAMES_AGAINST_IAM_GROUPS_OPTION, \
     KMSAUTH_SERVICE_ID_OPTION, \
+    JWTAUTH_SECTION, \
+    JWTAUTH_USEJWTAUTH_OPTION, \
+    JWTAUTH_SIGNATURE_JWK_OPTION, \
+    JWTAUTH_AUDIENCE_OPTION, \
+    JWTAUTH_ISSUER_OPTION, \
+    JWTAUTH_SIGNATURE_ALGORITHM_OPTION, \
+    JWTAUTH_USERNAME_CLAIM_OPTION, \
     TEST_USER_OPTION, \
     CERTIFICATE_EXTENSIONS_OPTION, \
     REMOTE_USERNAMES_VALIDATION_OPTION, \
@@ -29,6 +36,8 @@ from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
 from bless.ssh.certificates.ssh_certificate_builder_factory import get_ssh_certificate_builder
 from kmsauth import KMSTokenValidator, TokenValidationError
 from marshmallow.exceptions import ValidationError
+from jose import jwt
+from jose.exceptions import JWTError
 
 
 def lambda_handler_user(
@@ -158,6 +167,33 @@ def lambda_handler_user(
                 return error_response('KMSAuthValidationError', str(e))
         else:
             return error_response('InputValidationError', 'Invalid request, missing kmsauth token')
+
+    # Authenticate the user with JWT, if key is configured
+    if config.getboolean(JWTAUTH_SECTION, JWTAUTH_USEJWTAUTH_OPTION):
+        if request.jwtauth_token:
+
+            if request.remote_usernames != request.bastion_user:
+                return error_response('JWTAuthValidationError',
+                                      'remote_usernames must be the same as bastion_user')
+            try:
+                claims = jwt.decode(
+                    request.jwtauth_token,
+                    config.get(JWTAUTH_SECTION, JWTAUTH_SIGNATURE_JWK_OPTION),
+                    audience=config.get(JWTAUTH_SECTION, JWTAUTH_AUDIENCE_OPTION),
+                    issuer=config.get(JWTAUTH_SECTION, JWTAUTH_ISSUER_OPTION),
+                    algorithms=config.get(JWTAUTH_SECTION, JWTAUTH_SIGNATURE_ALGORITHM_OPTION)
+                )
+                username_claim = config.get(JWTAUTH_SECTION, JWTAUTH_USERNAME_CLAIM_OPTION)
+                if username_claim not in claims.keys():
+                    return error_response('JWTAuthValidationError',
+                                          'missing {} claim in jwt'.format(username_claim))
+                if request.bastion_user != claims[username_claim]:
+                    return error_response('JWTAuthValidationError',
+                                          'bastion_user must equal {} claim in jwt'.format(username_claim))
+            except JWTError as e:
+                return error_response('JWTAuthValidationError', str(e))
+        else:
+            return error_response('InputValidationError', 'Invalid request, missing jwtauth_token')
 
     # Build the cert
     ca = get_ssh_certificate_authority(ca_private_key, ca_private_key_password)
