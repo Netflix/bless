@@ -5,6 +5,12 @@ addons:
 matrix:
   include:
     - python: "3.7"
+    - name: 'SourceClear'
+      before_script: skip
+      install: skip
+      script: skip
+      addons:
+        srcclr: true
 
 install:
   - pip install coveralls
