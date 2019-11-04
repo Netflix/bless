@@ -181,7 +181,8 @@ def lambda_handler_user(
                     config.get(JWTAUTH_SECTION, JWTAUTH_SIGNATURE_JWK_OPTION),
                     audience=config.get(JWTAUTH_SECTION, JWTAUTH_AUDIENCE_OPTION),
                     issuer=config.get(JWTAUTH_SECTION, JWTAUTH_ISSUER_OPTION),
-                    algorithms=config.get(JWTAUTH_SECTION, JWTAUTH_SIGNATURE_ALGORITHM_OPTION)
+                    algorithms=config.get(JWTAUTH_SECTION, JWTAUTH_SIGNATURE_ALGORITHM_OPTION),
+                    options={'verify_at_hash': False}
                 )
                 username_claim = config.get(JWTAUTH_SECTION, JWTAUTH_USERNAME_CLAIM_OPTION)
                 if username_claim not in claims.keys():
