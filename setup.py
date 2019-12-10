@@ -6,7 +6,7 @@ ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__)))
 
 about = {}
 with open(os.path.join(ROOT, "bless", "__about__.py")) as f:
-    exec (f.read(), about)
+    exec(f.read(), about)
 
 setup(
     name=about["__title__"],
@@ -19,8 +19,6 @@ setup(
     packages=find_packages(exclude=["test*"]),
     install_requires=[
         'boto3',
-        'botocore',
-        'cffi',
         'cryptography',
         'ipaddress',
         'marshmallow',
@@ -31,7 +29,8 @@ setup(
             'coverage',
             'flake8',
             'pyflakes',
-            'pytest'
+            'pytest',
+            'pytest-mock'
         ]
     }
 )

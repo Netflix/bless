@@ -5,6 +5,7 @@ test: lint
 
 develop:
 	@echo "--> Installing dependencies"
+	pip install --upgrade pip setuptools
 	pip install -r requirements.txt
 	pip install "file://`pwd`#egg=bless[tests]"
 	@echo ""
@@ -33,21 +34,16 @@ publish:
 	rm -rf ./publish/bless_lambda/
 	mkdir -p ./publish/bless_lambda
 	cp -r ./bless ./publish/bless_lambda/
-	mv ./publish/bless_lambda/bless/aws_lambda/* ./publish/bless_lambda/
+	cp ./publish/bless_lambda/bless/aws_lambda/bless* ./publish/bless_lambda/
 	cp -r ./aws_lambda_libs/. ./publish/bless_lambda/
-	cp -r ./lambda_configs/. ./publish/bless_lambda/
-	cd ./publish/bless_lambda && zip -r ../bless_lambda.zip .
+	if [ -d ./lambda_configs/ ]; then cp -r ./lambda_configs/. ./publish/bless_lambda/; fi
+	cd ./publish/bless_lambda && zip -FSr ../bless_lambda.zip .
 
 compile:
-	yum install -y gcc libffi-devel openssl-devel python27-virtualenv
-	virtualenv /tmp/venv
-	/tmp/venv/bin/pip install --upgrade pip setuptools
-	/tmp/venv/bin/pip install -e .
-	cp -r /tmp/venv/lib/python2.7/site-packages/. ./aws_lambda_libs
-	cp -r /tmp/venv/lib64/python2.7/site-packages/. ./aws_lambda_libs
+	./lambda_compile.sh
 
 lambda-deps:
 	@echo "--> Compiling lambda dependencies"
-	docker run --rm -it -v ${CURDIR}:/src -w /src amazonlinux make compile
+	docker run --rm -v ${CURDIR}:/src -w /src amazonlinux:2 ./lambda_compile.sh
 
 .PHONY: develop dev-docs clean test lint coverage publish

@@ -44,13 +44,13 @@ def pack_ssh_string(string):
     :return: An SSH String stored as a unint32 representing the length of the input string,
     followed by that many bytes.
     """
-    if isinstance(string, unicode):
+    if isinstance(string, str):
         string = string.encode('utf-8')
 
     str_len = len(string)
 
     if len(string) > 4294967295:
-        raise ValueError("String must be less than 2^32 bytes long")
+        raise ValueError("String must be less than 2^32 bytes long.")
 
     return struct.pack('>I{}s'.format(str_len), str_len, string)
 
@@ -58,13 +58,13 @@ def pack_ssh_string(string):
 def pack_ssh_uint64(i):
     """
     Packs a 64-bit unsigned integer.
-    :param i: integer or long.
+    :param i: integer
     :return: Eight bytes in the order of decreasing significance (network byte order).
     """
-    if not isinstance(i, int) and not isinstance(i, long):
-        raise TypeError("Must be a int or long")
+    if not isinstance(i, int):
+        raise TypeError("Must be an int")
     elif i.bit_length() > 64:
-        raise ValueError("Must be a 64bit value")
+        raise ValueError("Must be a 64bit value.")
 
     return struct.pack('>Q', i)
 
@@ -75,10 +75,10 @@ def pack_ssh_uint32(i):
     :param i: integer or long.
     :return: Four bytes in the order of decreasing significance (network byte order).
     """
-    if not isinstance(i, int) and not isinstance(i, long):
-        raise TypeError("Must be a int or long")
+    if not isinstance(i, int):
+        raise TypeError("Must be an int")
     elif i.bit_length() > 32:
-        raise ValueError("Must be a 32bit value")
+        raise ValueError("Must be a 32bit value.")
 
     return struct.pack('>I', i)
 
@@ -94,7 +94,7 @@ def _hex_characters_length(mpint):
 
     # how many bytes?
     num_bits = mpint.bit_length()
-    num_bytes = num_bits / 8
+    num_bytes = num_bits // 8
 
     # if there are remaining bits, we need an extra byte
     if num_bits % 8:

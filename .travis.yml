@@ -1,12 +1,10 @@
-sudo: false
-
 language: python
 
 addons:
 
 matrix:
   include:
-    - python: "2.7"
+    - python: "3.7"
 
 install:
   - pip install coveralls

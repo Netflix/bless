@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 __all__ = [
     "__title__", "__summary__", "__uri__", "__version__", "__author__",
     "__email__", "__license__", "__copyright__",
@@ -11,7 +9,7 @@ __summary__ = (
     "sign SSH public keys.")
 __uri__ = "https://github.com/Netflix/bless"
 
-__version__ = "0.2.0"
+__version__ = "0.4.0"
 
 __author__ = "The BLESS developers"
 __email__ = "security@netflix.com"
