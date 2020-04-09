@@ -150,9 +150,12 @@ def get_certificate_type(certificate_type_option):
         raise ValueError('Invalid certificate type option: {}'.format(certificate_type_option))
 
 
-def lambda_lyft_host_handler(event, context=None, ca_private_key_password=None,
-                   entropy_check=True,
-                   config_file=os.path.join(os.path.dirname(__file__), 'bless_deploy.cfg')):
+def lambda_lyft_host_handler(
+        event,
+        context=None,
+        ca_private_key_password=None,
+        entropy_check=True,
+        config_file=os.path.join(os.path.dirname(__file__), 'bless_deploy.cfg')):
     """
     This is the function that will be called when the lambda function starts.
     :param event: Dictionary of the json request.
@@ -162,7 +165,6 @@ def lambda_lyft_host_handler(event, context=None, ca_private_key_password=None,
     decrypt.
     :param entropy_check: For local testing, if set to false, it will skip checking entropy and
     won't try to fetch additional random from KMS
-    :param certificate_type: Type of certificate to be generated
     :param config_file: The config file to load the SSH CA private key from, and additional settings
     :return: the SSH Certificate that can be written to id_rsa-cert.pub or similar file.
     """

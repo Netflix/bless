@@ -10,10 +10,18 @@ import re
 import zlib
 import bz2
 
+# TODO Migrate bless_lambda_lyft_host to stop using these items below, which are migrated from an old version
+CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION = 'certificate_validity_seconds'
+CROSS_ACCOUNT_ROLE_ARN_OPTION = 'cross_account_role_arn'
+CROSS_ACCOUNT_ROLE_ARN_DEFAULT = None
+KMSAUTH_CONTEXT_OPTION = 'kmsauth_context'
+KMSAUTH_CONTEXT_DEFAULT = None
+CERTIFICATE_TYPE_OPTION = 'certificate_type'
+CERTIFICATE_TYPE_DEFAULT = 'user'
+
 BLESS_OPTIONS_SECTION = 'Bless Options'
 CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION = 'certificate_validity_before_seconds'
 CERTIFICATE_VALIDITY_AFTER_SEC_OPTION = 'certificate_validity_after_seconds'
-CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION = 'certificate_validity_seconds'
 CERTIFICATE_VALIDITY_SEC_DEFAULT = 60 * 2
 SERVER_CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION = 'server_certificate_validity_before_seconds'
 SERVER_CERTIFICATE_VALIDITY_BEFORE_SEC_DEFAULT = 120
@@ -31,9 +39,6 @@ LOGGING_LEVEL_DEFAULT = 'INFO'
 
 TEST_USER_OPTION = 'test_user'
 TEST_USER_DEFAULT = None
-
-CERTIFICATE_TYPE_OPTION = 'certificate_type'
-CERTIFICATE_TYPE_DEFAULT = 'user'
 
 CERTIFICATE_EXTENSIONS_OPTION = 'certificate_extensions'
 # These are the the ssh-keygen default extensions:
@@ -53,8 +58,6 @@ CA_PRIVATE_KEY_COMPRESSION_OPTION = 'ca_private_key_compression'
 CA_PRIVATE_KEY_COMPRESSION_OPTION_DEFAULT = None
 
 REGION_PASSWORD_OPTION_SUFFIX = '_password'
-CROSS_ACCOUNT_ROLE_ARN_OPTION = 'cross_account_role_arn'
-CROSS_ACCOUNT_ROLE_ARN_DEFAULT = None
 
 KMSAUTH_SECTION = 'KMS Auth'
 KMSAUTH_USEKMSAUTH_OPTION = 'use_kmsauth'
@@ -62,8 +65,6 @@ KMSAUTH_USEKMSAUTH_DEFAULT = "False"
 
 KMSAUTH_KEY_ID_OPTION = 'kmsauth_key_id'
 KMSAUTH_KEY_ID_DEFAULT = ''
-KMSAUTH_CONTEXT_OPTION = 'kmsauth_context'
-KMSAUTH_CONTEXT_DEFAULT = None
 
 KMSAUTH_REMOTE_USERNAMES_ALLOWED_OPTION = 'kmsauth_remote_usernames_allowed'
 KMSAUTH_REMOTE_USERNAMES_ALLOWED_OPTION_DEFAULT = None
