@@ -163,14 +163,6 @@ INVALID_TEST_REQUEST_BLACKLISTED_REMOTE_USERNAME = {
 }
 
 
-def test_basic_local_request_with_wrapper():
-    output = lambda_handler(VALID_TEST_REQUEST, context=Context,
-                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
-                            entropy_check=False,
-                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
-    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
-
-
 def test_basic_local_request():
     output = lambda_handler_user(VALID_TEST_REQUEST, context=Context,
                             ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,

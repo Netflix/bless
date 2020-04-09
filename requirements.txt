@@ -3,7 +3,7 @@ asn1crypto==0.24.0
 boto3==1.9.151
 botocore==1.12.151
 cffi==1.12.3
-cryptography==2.6.1
+cryptography==2.9.0
 docutils==0.14
 ipaddress==1.0.22
 jmespath==0.9.4

@@ -15,7 +15,8 @@ from bless.config.bless_config import BlessConfig, BLESS_OPTIONS_SECTION, \
     CERTIFICATE_VALIDITY_WINDOW_SEC_OPTION, ENTROPY_MINIMUM_BITS_OPTION, RANDOM_SEED_BYTES_OPTION, \
     BLESS_CA_SECTION, CA_PRIVATE_KEY_FILE_OPTION, LOGGING_LEVEL_OPTION, CERTIFICATE_TYPE_OPTION, \
     KMSAUTH_KEY_ID_OPTION, KMSAUTH_CONTEXT_OPTION, CROSS_ACCOUNT_ROLE_ARN_OPTION
-from bless.request.bless_request import BlessUserSchema, BlessHostSchema
+from bless.request.bless_request_host import BlessHostSchema
+from bless.request.bless_request_user import BlessUserSchema
 from bless.ssh.certificate_authorities.ssh_certificate_authority_factory import \
     get_ssh_certificate_authority
 from bless.ssh.certificates.ssh_certificate_builder import SSHCertificateType
@@ -87,9 +88,9 @@ def validate_instance_id(instance_id, request, cross_account_role_arn):
             'Role is not a valid format {0}.'.format(role)
         )
         return False
-    if (role_service_name in request.service_name and
-            role_service_instance == request.service_instance and
-            role_service_region == request.service_region):
+    if (role_service_name in request.service_name
+            and role_service_instance == request.service_instance
+            and role_service_region == request.service_region):
         return True
     else:
         return False
@@ -149,7 +150,7 @@ def get_certificate_type(certificate_type_option):
         raise ValueError('Invalid certificate type option: {}'.format(certificate_type_option))
 
 
-def lambda_handler(event, context=None, ca_private_key_password=None,
+def lambda_lyft_host_handler(event, context=None, ca_private_key_password=None,
                    entropy_check=True,
                    config_file=os.path.join(os.path.dirname(__file__), 'bless_deploy.cfg')):
     """
