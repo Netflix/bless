@@ -3,11 +3,11 @@
     :copyright: (c) 2016 by Netflix Inc., see AUTHORS for more
     :license: Apache, see LICENSE for more details.
 """
-from bless.aws_lambda.bless_lambda_user import lambda_handler_user
+from bless.aws_lambda.bless_lambda_lyft_host import lambda_handler
 
 
 def lambda_handler(*args, **kwargs):
     """
-    Wrapper around lambda_handler_user for backwards compatibility
+    Wrapper to redirect to Lyft version of bless_lambda_host
     """
-    return lambda_handler_user(*args, **kwargs)
+    return lambda_handler(*args, **kwargs)
