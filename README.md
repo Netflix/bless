@@ -1,3 +1,6 @@
+# Archived
+With the existence of more SSH certificate tools since the release of BLESS, and better SSH access management from AWS, we're moving BLESS to the archived OSS project state. This means we no longer plan to maintain the project, but will be keeping it public for others who may still use it.
+
 ![alt text](bless_logo.png "BLESS")
 # BLESS - Bastion's Lambda Ephemeral SSH Service
 [![Build Status](https://travis-ci.org/Netflix/bless.svg?branch=master)](https://travis-ci.org/Netflix/bless) [![Test coverage](https://coveralls.io/repos/github/Netflix/bless/badge.svg?branch=master)](https://coveralls.io/github/Netflix/bless) [![Join the chat at https://gitter.im/Netflix/bless](https://badges.gitter.im/Netflix/bless.svg)](https://gitter.im/Netflix/bless?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![NetflixOSS Lifecycle](https://img.shields.io/osslifecycle/Netflix/bless.svg)]()
