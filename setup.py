@@ -21,8 +21,9 @@ setup(
         'boto3',
         'cryptography',
         'ipaddress',
-        'marshmallow',
-        'kmsauth'
+        'marshmallow<3',
+        'kmsauth',
+        'python-jose[cryptography]'
     ],
     extras_require={
         'tests': [

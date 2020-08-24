@@ -1,18 +1,37 @@
 import os
 import zlib
-
+import datetime
 import pytest
 
 from bless.aws_lambda.bless_lambda_user import lambda_handler_user
 from bless.aws_lambda.bless_lambda import lambda_handler
 from tests.ssh.vectors import EXAMPLE_RSA_PUBLIC_KEY, RSA_CA_PRIVATE_KEY_PASSWORD, \
     EXAMPLE_ED25519_PUBLIC_KEY, EXAMPLE_ECDSA_PUBLIC_KEY
-
+from jose import jwt
 
 class Context(object):
     aws_request_id = 'bogus aws_request_id'
     invoked_function_arn = 'bogus invoked_function_arn'
 
+JWTAUTH_JWK_SIGN = {
+  "kty": "RSA",
+  "d": "rCI3nedHZQF6VJHiKHTJHis9heGhrg3m5Ohbz96-GlN_HH3AQFuNe9El2_DCEz0DFrRACyjYkXao3r-Cc3hyVnBluTvoq25odvKwyXc0rNVTDRt_nQsrVrgaZ5oYkWhp3yDWmY4GRfE2r4ZisrQ9b7-vKXjzepTBlJfPlc75dVR5RoS5WISqt5jPPl2jGlbCmWw1Qb4N1TwCWXHtK5ns6IfeewlMyn7rpm3CfYblQlMGOorB6QzID4cEd2ogagJQIICPXlmbZ6N8qXEPWpVBQ0Krum91RmFButf0rUt-ODPe-BTmYLsa4txk5IFaHOLjzVjmq6AgRVxWmsA_rbOhMQ",
+  "e": "AQAB",
+  "use": "sig",
+  "kid": "key1",
+  "alg": "RS256",
+  "n": "7V4O45XkdzKedgfbg3U1X_UeGF00wQH6APcuRX_702h-3QZI4VmAbBFgDDAJgHa1wunKPUKmwfmzFodLX6Bd2UvgHtzhHDAnrHYSOpV0jci7zxUhPN84PBbNRKNG-yAGPvNk4YbCWHywz7BKmTVnG9q4KSdWaHpyhljxedMdkt2JqdTJcwaAEfqT_0A-gcBWxyCPwRJJRLColM9g6lZU7-17Y3UNHwBFC4lahfd009CXY7WMbKIJMG0LuBjsmCE4L__IlrFlevVFyA0ShDjDh07gKD-f5WJ6WdgcZOL7X3rf-DK6MRBUW4ItIpG7DVVWN0Vj6SNQT3x1kwq55mIZTw"
+}
+
+JWTAUTH_JWK_BAD_SIGN = {
+  "kty": "RSA",
+  "d": "bGRl4H_ZRz4UaXXHpBjsGvSmEazJ0YJjWt_DNG3SjsHrFZwLXU2CWLP1-JAVe9Y2VRIuTKSdOBDbEWiSpAsH7iAirxKGqmIBLaYOrK170zrzWcToSGcIZziBbwTZpIy9Z55loXrtFjkObUfoEw7erHNNJfM0-jg79W_Phe89mtqbAf6twzB76yS4hcIzQdkTT_0q0PNj0n4DC8uDZC70gzHDGjtGUQmjw1ZXHCGFZaFESQjbv9-2SlhS5foLeNtuKCkQMRAeRaJ5_fLnJs61yVKwRzOz4r73yfTPlsYfhFXN5M4P6C1GOaDZANzl3uFsU88aCydEuFXEdWcRHeSw2Q",
+  "e": "AQAB",
+  "use": "sig",
+  "kid": "key1",
+  "alg": "RS256",
+  "n": "xPrwx5lWUhlPvH4qa791zUczNIPclGR3fnw6RHPtt8gExFfyChJ34lgHTRloEsRLTDyIfDgmTzGJHPBVYyxm8G7b3oC2KKbfczagb4Hfw0iIC1wXdp8PFiWy3L4qE6bh-3D0wwwqAQXyOx7ITa44oOYQzevYp637pzyCSZrInBDf9-TvyVjoO9erpbyHr7SnvIN8cccyqoQdpobG5N7vcSGWDXJrD1ZNKU624wAbe6ARUlOj7JdNxsFRO92IQSEZycTPo3aKhcQFqasQeRTNS_GChrcVvKfrBRt3KTWai9-hbtjlOetTfhtaGnbO2AxbMYgmis-_MSXTXs9VssqbVw"
+}
 
 VALID_TEST_REQUEST = {
     "remote_usernames": "user",
@@ -67,6 +86,31 @@ VALID_TEST_REQUEST_KMSAUTH = {
     "bastion_user": "user",
     "bastion_user_ip": "127.0.0.1",
     "kmsauth_token": "validkmsauthtoken",
+}
+
+VALID_TEST_REQUEST_JWTAUTH = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1",
+    "jwtauth_token": jwt.encode({
+        "exp":datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "iss":"https://issuer.example.com",
+        "aud":"6c1d8893-9240-4f87-be95-1f21ef664ce0",
+        "username": "user"
+    }, JWTAUTH_JWK_SIGN, algorithm="RS256"),
+}
+
+INVALID_TEST_REQUEST_JWTAUTH = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1",
+    "jwtauth_token": "",
 }
 
 INVALID_TEST_REQUEST_KEY_TYPE = {
@@ -162,6 +206,123 @@ INVALID_TEST_REQUEST_BLACKLISTED_REMOTE_USERNAME = {
     "bastion_user_ip": "127.0.0.1"
 }
 
+INVALID_TEST_JWTAUTH_REQUEST_USERNAME_DOESNT_MATCH_REMOTE = {
+    "remote_usernames": "usera",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "userb",
+    "bastion_user_ip": "127.0.0.1",
+    "jwtauth_token": jwt.encode({
+        "iss":"https://issuer.example.com",
+        "aud":"6c1d8893-9240-4f87-be95-1f21ef664ce0",
+        "username": "user"
+    }, JWTAUTH_JWK_SIGN, algorithm="RS256"),
+}
+
+INVALID_TEST_JWTAUTH_REQUEST_EXPIRED_JWTAUTH_TOKEN = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1",
+    "jwtauth_token": jwt.encode({
+        "exp":datetime.datetime.utcnow() - datetime.timedelta(hours=1),
+        "iss":"https://issuer.example.com",
+        "aud":"6c1d8893-9240-4f87-be95-1f21ef664ce0",
+        "username": "user"
+    }, JWTAUTH_JWK_SIGN, algorithm="RS256"),
+}
+
+INVALID_TEST_JWTAUTH_REQUEST_INCORRECT_ISSUER = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1",
+    "jwtauth_token": jwt.encode({
+        "exp":datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "iss":"https://bad.issuer",
+        "aud":"6c1d8893-9240-4f87-be95-1f21ef664ce0",
+        "username": "user"
+    }, JWTAUTH_JWK_SIGN, algorithm="RS256"),
+}
+
+INVALID_TEST_JWTAUTH_REQUEST_INCORRECT_AUDIENCE = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1",
+    "jwtauth_token": jwt.encode({
+        "exp":datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "iss":"https://issuer.example.com",
+        "aud":"bad.audience",
+        "username": "user"
+    }, JWTAUTH_JWK_SIGN, algorithm="RS256"),
+}
+
+INVALID_TEST_JWTAUTH_REQUEST_MISSING_USERNAME_CLAIM = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1",
+    "jwtauth_token": jwt.encode({
+        "exp":datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "iss":"https://issuer.example.com",
+        "aud":"6c1d8893-9240-4f87-be95-1f21ef664ce0"
+    }, JWTAUTH_JWK_SIGN, algorithm="RS256"),
+}
+
+INVALID_TEST_JWTAUTH_REQUEST_USERNAME_CLAIM_DOESNT_MATCH_REMOTE_USER = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1",
+    "jwtauth_token": jwt.encode({
+        "exp":datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "iss":"https://issuer.example.com",
+        "aud":"6c1d8893-9240-4f87-be95-1f21ef664ce0",
+        "username": "bad.user"
+    }, JWTAUTH_JWK_SIGN, algorithm="RS256"),
+}
+
+INVALID_TEST_JWTAUTH_REQUEST_INCORRECT_SIGNATURE_ALGORITHM = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1",
+    "jwtauth_token": jwt.encode({
+        "exp":datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "iss":"https://issuer.example.com",
+        "aud":"6c1d8893-9240-4f87-be95-1f21ef664ce0",
+        "username": "user"
+    }, JWTAUTH_JWK_SIGN, algorithm="RS512"),
+}
+
+INVALID_TEST_JWTAUTH_REQUEST_INCORRECT_SIGNATURE = {
+    "remote_usernames": "user",
+    "public_key_to_sign": EXAMPLE_RSA_PUBLIC_KEY,
+    "command": "ssh user@server",
+    "bastion_ips": "127.0.0.1",
+    "bastion_user": "user",
+    "bastion_user_ip": "127.0.0.1",
+    "jwtauth_token": jwt.encode({
+        "exp":datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "iss":"https://issuer.example.com",
+        "aud":"6c1d8893-9240-4f87-be95-1f21ef664ce0",
+        "username": "user"
+    }, JWTAUTH_JWK_BAD_SIGN, algorithm="RS256"),
+}
 
 def test_basic_local_request_with_wrapper():
     output = lambda_handler(VALID_TEST_REQUEST, context=Context,
@@ -201,6 +362,22 @@ def test_basic_local_missing_kmsauth_request():
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__),
                                                      'bless-test-kmsauth.cfg'))
+    assert output['errorType'] == 'InputValidationError'
+
+def test_basic_local_unused_jwtauth_request():
+    output = lambda_handler_user(VALID_TEST_REQUEST_JWTAUTH, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+
+def test_basic_local_missing_jwtauth_request():
+    output = lambda_handler_user(VALID_TEST_REQUEST, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-jwtauth.cfg'))
     assert output['errorType'] == 'InputValidationError'
 
 
@@ -390,6 +567,14 @@ def test_invalid_kmsauth_request():
                                                      'bless-test-kmsauth.cfg'))
     assert output['errorType'] == 'KMSAuthValidationError'
 
+def test_invalid_jwtauth_request():
+    output = lambda_handler_user(INVALID_TEST_REQUEST_JWTAUTH, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-jwtauth.cfg'))
+    assert output['errorType'] == 'InputValidationError'
+
 
 def test_invalid_request():
     output = lambda_handler_user(INVALID_TEST_REQUEST, context=Context,
@@ -556,3 +741,83 @@ def test_basic_local_request_blacklisted(monkeypatch):
                             entropy_check=False,
                             config_file=os.path.join(os.path.dirname(__file__), 'bless-test.cfg'))
     assert output['errorType'] == 'InputValidationError'
+
+
+def test_invalid_jwtauth_request_with_mismatched_bastion_and_remote():
+    output = lambda_handler_user(INVALID_TEST_JWTAUTH_REQUEST_USERNAME_DOESNT_MATCH_REMOTE, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-jwtauth.cfg'))
+    assert output['errorType'] == 'JWTAuthValidationError'
+
+def test_valid_jwtauth_request():
+    output = lambda_handler_user(VALID_TEST_REQUEST_JWTAUTH, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-jwtauth.cfg'))
+    assert output['certificate'].startswith('ssh-rsa-cert-v01@openssh.com ')
+
+def test_invalid_jwtauth_request_with_expired_jwtauth_token():
+    output = lambda_handler_user(INVALID_TEST_JWTAUTH_REQUEST_EXPIRED_JWTAUTH_TOKEN, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-jwtauth.cfg'))
+    assert output['errorType'] == 'JWTAuthValidationError'
+    assert output['errorMessage'] == 'Signature has expired.'
+
+def test_invalid_jwtauth_request_with_incorrect_issuer():
+    output = lambda_handler_user(INVALID_TEST_JWTAUTH_REQUEST_INCORRECT_ISSUER, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-jwtauth.cfg'))
+    assert output['errorType'] == 'JWTAuthValidationError'
+    assert output['errorMessage'] == 'Invalid issuer'
+
+def test_invalid_jwtauth_request_with_incorrect_audience():
+    output = lambda_handler_user(INVALID_TEST_JWTAUTH_REQUEST_INCORRECT_AUDIENCE, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-jwtauth.cfg'))
+    assert output['errorType'] == 'JWTAuthValidationError'
+    assert output['errorMessage'] == 'Invalid audience'
+
+def test_invalid_jwtauth_request_with_missing_username_claim():
+    output = lambda_handler_user(INVALID_TEST_JWTAUTH_REQUEST_MISSING_USERNAME_CLAIM, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-jwtauth.cfg'))
+    assert output['errorType'] == 'JWTAuthValidationError'
+    assert output['errorMessage'] == 'missing username claim in jwt'
+
+def test_invalid_jwtauth_request_with_username_claim_not_matching_remote_user():
+    output = lambda_handler_user(INVALID_TEST_JWTAUTH_REQUEST_USERNAME_CLAIM_DOESNT_MATCH_REMOTE_USER, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-jwtauth.cfg'))
+    assert output['errorType'] == 'JWTAuthValidationError'
+    assert output['errorMessage'] == 'bastion_user must equal username claim in jwt'
+
+def test_invalid_jwtauth_request_with_incorrect_signature_algorithm():
+    output = lambda_handler_user(INVALID_TEST_JWTAUTH_REQUEST_INCORRECT_SIGNATURE_ALGORITHM, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-jwtauth.cfg'))
+    assert output['errorType'] == 'JWTAuthValidationError'
+    assert output['errorMessage'] == 'The specified alg value is not allowed'
+
+def test_invalid_jwtauth_request_with_incorrect_signature():
+    output = lambda_handler_user(INVALID_TEST_JWTAUTH_REQUEST_INCORRECT_SIGNATURE, context=Context,
+                            ca_private_key_password=RSA_CA_PRIVATE_KEY_PASSWORD,
+                            entropy_check=False,
+                            config_file=os.path.join(os.path.dirname(__file__),
+                                                     'bless-test-jwtauth.cfg'))
+    assert output['errorType'] == 'JWTAuthValidationError'
+    assert output['errorMessage'] == 'Signature verification failed.'
