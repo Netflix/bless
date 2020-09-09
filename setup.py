@@ -21,7 +21,7 @@ setup(
         'boto3',
         'cryptography',
         'ipaddress',
-        'marshmallow',
+        'marshmallow<3',
         'kmsauth'
     ],
     extras_require={
