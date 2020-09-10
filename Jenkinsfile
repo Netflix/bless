@@ -4,7 +4,7 @@ pipeline {
     stage('Setup') {
       steps {
         sh 'cd bless'
-        sh 'python3.8 -m venv venv'
+        sh 'python3.7 -m venv venv'
         sh 'source venv/bin/activate'     
       }
     }
