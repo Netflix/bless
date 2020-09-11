@@ -5,7 +5,7 @@ test: lint
 
 develop:
 	@echo "--> Installing dependencies"
-	pip3 install --upgrade pip setuptools
+	pip3 install --upgrade pip3 setuptools
 	pip3 install -r requirements.txt
 	pip3 install "file://`pwd`#egg=bless[tests]"
 	@echo ""
