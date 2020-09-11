@@ -1,5 +1,5 @@
 pipeline {
-  agent { label 'ec2-fleet' }
+  agent any
   stages {
     stage('Setup') {
       steps {
