@@ -4,8 +4,9 @@ pipeline {
     stage('Setup') {
       steps {
         sh 'cd bless'
+        sh 'aws s3 cp s3://blessca-keys/bless-ca- lambda_configs/bless-ca-'
         //sh 'python3.7 -m venv venv'
-        //sh '. venv/bin/activate'     
+        //sh '. venv/bin/activate' 
       }
     }
 

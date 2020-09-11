@@ -8,5 +8,5 @@ libs/
 publish/
 venv/
 aws_lambda_libs/
-lambda_configs/
+lambda_configs/bless-ca-
 .pytest_cache/
