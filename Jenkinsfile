@@ -15,11 +15,11 @@ pipeline {
             sh 'make develop'
         }
     }
-     stage('Test') {
-      steps {
-        sh 'make test'
-      }
-    }
+    //  stage('Test') {
+    //   steps {
+    //     sh 'make test'
+    //   }
+    // }
 
     stage('Compile') {
       steps {
