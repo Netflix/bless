@@ -1,0 +1,23 @@
+- name: Set AWS KEY ID
+  set_fact: aws_key_id="{{ lookup('env','AWS_ACCESS_KEY_ID') }}"
+  delegate_to: 127.0.0.1
+- name: Set AWS SECRET
+  set_fact: aws_secret_key="{{ lookup('env','AWS_SECRET_ACCESS_KEY') }}"
+  delegate_to: 127.0.0.1
+- name: Ensure boto and boto3 modules are installed
+  pip:
+    name: "{{ item }}"
+  with_items:
+    - boto3
+    - botocore
+- name: Download CA pub key
+  aws_s3: 
+    aws_access_key: '{{aws_key_id}}'
+    aws_secret_key: '{{aws_secret_key}}'
+    bucket: blessca-keys
+    object: /bless-ca-.pub
+    dest: /etc/ssh/cas.pub
+    mode: get
+- name: trust CA in sshd configuration
+  lineinfile: dest=/etc/ssh/sshd_config line="TrustedUserCAKeys /etc/ssh/cas.pub"
+  notify: restart sshd

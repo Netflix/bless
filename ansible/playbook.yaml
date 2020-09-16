@@ -1,0 +1,6 @@
+- name: Setup sshd
+  hosts: linux
+  #gather_facts: false
+  become: true
+  roles:
+  - sshserver
