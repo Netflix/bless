@@ -4,9 +4,8 @@
     :license: Apache, see LICENSE for more details.
 """
 from bless.ssh.certificate_authorities.ssh_certificate_authority import \
-    SSHCertificateAuthority
+    SSHCertificateAuthority, SSHCertificateSignetureKeyType
 from bless.ssh.protocol.ssh_protocol import pack_ssh_mpint, pack_ssh_string
-from bless.ssh.public_keys.ssh_public_key import SSHPublicKeyType
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -14,7 +13,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 
 class RSACertificateAuthority(SSHCertificateAuthority):
-    def __init__(self, pem_private_key, private_key_password=None):
+    def __init__(self, pem_private_key, private_key_password=None, cert_type="sha2"):
         """
         RSA Certificate Authority used to sign certificates.
         :param pem_private_key: PEM formatted RSA Private Key.  It should be encrypted with a
@@ -22,9 +21,13 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         :param private_key_password: Password to decrypt the PEM RSA Private Key, if it is
         encrypted.  Which it should be.
         """
-        super(SSHCertificateAuthority, self).__init__()
-        self.public_key_type = SSHPublicKeyType.RSA
-
+        super().__init__()
+        if cert_type == "sha1":
+            self.public_key_type = SSHCertificateSignetureKeyType.RSA
+            self.algo = hashes.SHA1()
+        else:
+            self.public_key_type = SSHCertificateSignetureKeyType.RSA_SHA2
+            self.algo = hashes.SHA512()
         self.private_key = load_pem_private_key(pem_private_key,
                                                 private_key_password,
                                                 default_backend())
@@ -53,6 +56,6 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         signature key.
         :return: SSH RSA Signature.
         """
-        signature = self.private_key.sign(body, padding.PKCS1v15(), hashes.SHA1())
+        signature = self.private_key.sign(body, padding.PKCS1v15(), self.algo)
 
         return self._serialize_signature(signature)

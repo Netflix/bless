@@ -10,3 +10,5 @@ venv/
 aws_lambda_libs/
 lambda_configs/
 .pytest_cache/
+.vscode/settings.json
+*env/

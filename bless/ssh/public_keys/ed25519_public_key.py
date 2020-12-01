@@ -46,7 +46,7 @@ class ED25519PublicKey(SSHPublicKey):
         except TypeError:
             raise ValueError('Key is not in the proper format.')
 
-        inner_key_type, rest = ssh._ssh_read_next_string(decoded_data)
+        inner_key_type, rest = ssh._get_sshstr(decoded_data)
 
         if inner_key_type != key_type.encode("utf-8"):
             raise ValueError(
@@ -54,7 +54,7 @@ class ED25519PublicKey(SSHPublicKey):
             )
 
         # ed25519 public key is a single string https://tools.ietf.org/html/rfc8032#section-5.1.5
-        self.a, rest = ssh._ssh_read_next_string(rest)
+        self.a, rest = ssh._get_sshstr(rest)
 
         key_bytes = base64.b64decode(split_ssh_public_key[1])
         fingerprint = hashlib.md5(key_bytes).hexdigest()

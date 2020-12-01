@@ -1,7 +1,7 @@
 import base64
 
 import pytest
-from cryptography.hazmat.primitives.serialization.ssh import _ssh_read_next_string
+from cryptography.hazmat.primitives.serialization.ssh import _get_sshstr
 
 from bless.ssh.certificate_authorities.rsa_certificate_authority import RSACertificateAuthority
 from bless.ssh.certificates.rsa_certificate_builder import RSACertificateBuilder
@@ -39,8 +39,8 @@ def get_basic_cert_builder_rsa(cert_type=SSHCertificateType.USER,
 
 def extract_nonce_from_cert(cert_file):
     cert = cert_file.split(' ')[1]
-    cert_type, cert_remainder = _ssh_read_next_string(base64.b64decode(cert))
-    nonce, cert_remainder = _ssh_read_next_string(cert_remainder)
+    cert_type, cert_remainder = _get_sshstr(base64.b64decode(cert))
+    nonce, cert_remainder = _get_sshstr(cert_remainder)
     return nonce
 
 
