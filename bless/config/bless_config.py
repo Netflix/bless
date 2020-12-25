@@ -89,7 +89,7 @@ class BlessConfig(configparser.RawConfigParser, object):
 
         The [Bless CA] section is required.
         :param aws_region: The AWS Region BLESS is deployed to.
-        :param config_file: Path to the connfig file.
+        :param config_file: Path to the config file.
         """
         self.aws_region = aws_region
         defaults = {CERTIFICATE_VALIDITY_BEFORE_SEC_OPTION: CERTIFICATE_VALIDITY_SEC_DEFAULT,
