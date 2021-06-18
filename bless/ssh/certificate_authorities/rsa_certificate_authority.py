@@ -59,10 +59,10 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         signature = self.private_key.sign(
             body,
             padding.PSS(
-                mgf=padding.MGF1(self.algo),
+                mgf=padding.MGF1(hashes.SHA256),
                 salt_length=padding.PSS.MAX_LENGTH
             ),
-            self.algo
+            hashes.SHA256()
         )
 
         return self._serialize_signature(signature)
