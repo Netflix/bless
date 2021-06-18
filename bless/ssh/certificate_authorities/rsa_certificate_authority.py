@@ -56,6 +56,13 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         signature key.
         :return: SSH RSA Signature.
         """
-        signature = self.private_key.sign(body, padding.PKCS1v15(), self.algo)
+        signature = self.private_key.sign(
+            body,
+            padding.PSS(
+                mgf=padding.MGF1(self.algo),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            self.algo
+        )
 
         return self._serialize_signature(signature)
