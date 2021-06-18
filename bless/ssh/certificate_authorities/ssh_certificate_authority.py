@@ -11,6 +11,7 @@ class SSHCertificateSignetureKeyType(object):
     SHA2 enhancement: implemention of rfc8332 section 3 rsa-sha2-512 to support SHA2 public key signing algorithm
     '''
     RSA = 'ssh-rsa'
+    RSA_SHA2_256 = 'rsa-sha2-256'
     RSA_SHA2 = 'rsa-sha2-512'
     ED25519 = 'ssh-ed25519'
 

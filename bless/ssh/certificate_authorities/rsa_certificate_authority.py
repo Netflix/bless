@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 
 class RSACertificateAuthority(SSHCertificateAuthority):
-    def __init__(self, pem_private_key, private_key_password=None, cert_type="sha1"):
+    def __init__(self, pem_private_key, private_key_password=None, cert_type="sha2-256"):
         """
         RSA Certificate Authority used to sign certificates.
         :param pem_private_key: PEM formatted RSA Private Key.  It should be encrypted with a
@@ -25,6 +25,9 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         if cert_type == "sha1":
             self.public_key_type = SSHCertificateSignetureKeyType.RSA
             self.algo = hashes.SHA1()
+        elif cert_type == "sha2-256":
+            self.public_key_type = SSHCertificateSignetureKeyType.RSA_SHA2
+            self.algo = hashes.SHA256()
         else:
             self.public_key_type = SSHCertificateSignetureKeyType.RSA_SHA2
             self.algo = hashes.SHA512()
