@@ -26,7 +26,7 @@ class RSACertificateAuthority(SSHCertificateAuthority):
             self.public_key_type = SSHCertificateSignetureKeyType.RSA
             self.algo = hashes.SHA1()
         elif cert_type == "sha2-256":
-            self.public_key_type = SSHCertificateSignetureKeyType.RSA_SHA2
+            self.public_key_type = SSHCertificateSignetureKeyType.RSA_SHA2_256
             self.algo = hashes.SHA256()
         else:
             self.public_key_type = SSHCertificateSignetureKeyType.RSA_SHA2
