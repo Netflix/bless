@@ -59,7 +59,7 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         signature = self.private_key.sign(
             body,
             padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256),
+                mgf=padding.MGF1(hashes.SHA256()),
                 salt_length=padding.PSS.MAX_LENGTH
             ),
             hashes.SHA256()
