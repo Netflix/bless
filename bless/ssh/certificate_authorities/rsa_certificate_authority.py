@@ -25,11 +25,12 @@ class RSACertificateAuthority(SSHCertificateAuthority):
 
         # RSA key is the only key algorithm parsable by golang
         # reference: https://github.com/lyft/go-blessclient/blob/master/vendor/golang.org/x/crypto/ssh/keys.go#L55
-        self.public_key_type = SSHCertificateSignetureKeyType.RSA
         if cert_type == "sha1":
+            self.public_key_type = SSHCertificateSignetureKeyType.RSA
             self.algo = hashes.SHA1()
         else:
-            self.algo = hashes.SHA256()
+            self.public_key_type = SSHCertificateSignetureKeyType.RSA_SHA2_512
+            self.algo = hashes.SHA512()
         self.private_key = load_pem_private_key(pem_private_key,
                                                 private_key_password,
                                                 default_backend())
