@@ -29,7 +29,7 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         if cert_type == "sha1":
             self.algo = hashes.SHA1()
         else:
-            self.algo = hashes.SHA512()
+            self.algo = hashes.SHA256()
         self.private_key = load_pem_private_key(pem_private_key,
                                                 private_key_password,
                                                 default_backend())
@@ -45,7 +45,7 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         Packed per RFC4253 section 6.6.
         :return: SSH Public Key.
         """
-        key = pack_ssh_string(self.public_key_type)
+        key = pack_ssh_string(SSHCertificateSignetureKeyType.RSA)
         key += pack_ssh_mpint(self.e)
         key += pack_ssh_mpint(self.n)
         return key
