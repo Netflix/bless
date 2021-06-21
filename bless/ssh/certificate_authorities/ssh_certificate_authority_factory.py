@@ -9,7 +9,7 @@ from bless.ssh.certificate_authorities.ssh_certificate_authority import \
     SSHCertificateAuthorityPrivateKeyType
 
 
-def get_ssh_certificate_authority(private_key, password=None, cert_type="sha2-256"):
+def get_ssh_certificate_authority(private_key, password=None, cert_type="sha2"):
     """
     Returns the proper SSHCertificateAuthority instance based off the private_key type.
     :param private_key: ASCII bytes of an SSH compatible Private Key (e.g., PEM or SSH Protocol 2 Private Key).

@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 
 class RSACertificateAuthority(SSHCertificateAuthority):
-    def __init__(self, pem_private_key, private_key_password=None, cert_type="sha2-256"):
+    def __init__(self, pem_private_key, private_key_password=None, cert_type="sha2"):
         """
         RSA Certificate Authority used to sign certificates.
         :param pem_private_key: PEM formatted RSA Private Key.  It should be encrypted with a
@@ -22,14 +22,13 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         encrypted.  Which it should be.
         """
         super().__init__()
+
+        # RSA key is the only key algorithm parsable by golang
+        # reference: https://github.com/lyft/go-blessclient/blob/master/vendor/golang.org/x/crypto/ssh/keys.go#L55
+        self.public_key_type = SSHCertificateSignetureKeyType.RSA
         if cert_type == "sha1":
-            self.public_key_type = SSHCertificateSignetureKeyType.RSA
             self.algo = hashes.SHA1()
-        elif cert_type == "sha2-256":
-            self.public_key_type = SSHCertificateSignetureKeyType.RSA_SHA2_256
-            self.algo = hashes.SHA256()
         else:
-            self.public_key_type = SSHCertificateSignetureKeyType.RSA_SHA2
             self.algo = hashes.SHA512()
         self.private_key = load_pem_private_key(pem_private_key,
                                                 private_key_password,
@@ -46,7 +45,7 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         Packed per RFC4253 section 6.6.
         :return: SSH Public Key.
         """
-        key = pack_ssh_string(SSHCertificateSignetureKeyType.RSA)
+        key = pack_ssh_string(self.public_key_type)
         key += pack_ssh_mpint(self.e)
         key += pack_ssh_mpint(self.n)
         return key
