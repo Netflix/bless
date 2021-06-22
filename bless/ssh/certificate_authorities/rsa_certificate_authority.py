@@ -29,7 +29,7 @@ class RSACertificateAuthority(SSHCertificateAuthority):
             self.public_key_type = SSHCertificateSignetureKeyType.RSA
             self.algo = hashes.SHA1()
         else:
-            self.public_key_type = SSHCertificateSignetureKeyType.RSA_SHA2
+            self.public_key_type = SSHCertificateSignetureKeyType.RSA
             self.algo = hashes.SHA512()
         self.private_key = load_pem_private_key(pem_private_key,
                                                 private_key_password,
