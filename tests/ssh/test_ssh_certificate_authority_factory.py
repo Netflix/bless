@@ -11,7 +11,7 @@ from tests.ssh.vectors import RSA_CA_PRIVATE_KEY, RSA_CA_PRIVATE_KEY_PASSWORD, \
 def test_valid_key_valid_password():
     ca = get_ssh_certificate_authority(RSA_CA_PRIVATE_KEY, RSA_CA_PRIVATE_KEY_PASSWORD)
     assert isinstance(ca, RSACertificateAuthority)
-    assert SSHCertificateSignetureKeyType.RSA == ca.public_key_type
+    assert SSHCertificateSignetureKeyType.RSA_SHA2 == ca.public_key_type
     assert 65537 == ca.e
     assert ca.get_signature_key() == RSA_CA_SSH_PUBLIC_KEY
 
@@ -26,7 +26,7 @@ def test_valid_key_valid_password_sha1():
 
 def test_valid_key_not_encrypted():
     ca = get_ssh_certificate_authority(private_key=RSA_CA_PRIVATE_KEY_NOT_ENCRYPTED)
-    assert SSHCertificateSignetureKeyType.RSA == ca.public_key_type
+    assert SSHCertificateSignetureKeyType.RSA_SHA2 == ca.public_key_type
     assert 65537 == ca.e
 
 
