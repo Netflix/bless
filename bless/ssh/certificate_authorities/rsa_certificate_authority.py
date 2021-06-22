@@ -4,7 +4,8 @@
     :license: Apache, see LICENSE for more details.
 """
 from bless.ssh.certificate_authorities.ssh_certificate_authority import \
-    SSHCertificateAuthority, SSHCertificateSignetureKeyType
+    SSHCertificateAuthority, SSHCertificateSignatureKeyType
+from bless.ssh.public_keys.ssh_public_key import SSHPublicKeyType
 from bless.ssh.protocol.ssh_protocol import pack_ssh_mpint, pack_ssh_string
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -24,10 +25,12 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         super().__init__()
 
         if cert_type == "sha1":
-            self.public_key_type = SSHCertificateSignetureKeyType.RSA
+            self.public_key_type = SSHPublicKeyType.RSA
+            self.signing_key_type = SSHCertificateSignatureKeyType.RSA
             self.algo = hashes.SHA1()
         else:
-            self.public_key_type = SSHCertificateSignetureKeyType.RSA_SHA2
+            self.public_key_type = SSHPublicKeyType.RSA
+            self.signing_key_type = SSHCertificateSignatureKeyType.RSA_SHA2
             self.algo = hashes.SHA512()
         self.private_key = load_pem_private_key(pem_private_key,
                                                 private_key_password,
@@ -44,9 +47,7 @@ class RSACertificateAuthority(SSHCertificateAuthority):
         Packed per RFC4253 section 6.6.
         :return: SSH Public Key.
         """
-        # RSA key is the only key algorithm parsable by golang
-        # reference: https://github.com/lyft/go-blessclient/blob/master/vendor/golang.org/x/crypto/ssh/keys.go#L55
-        key = pack_ssh_string(SSHCertificateSignetureKeyType.RSA)
+        key = pack_ssh_string(self.public_key_type)
         key += pack_ssh_mpint(self.e)
         key += pack_ssh_mpint(self.n)
         return key
