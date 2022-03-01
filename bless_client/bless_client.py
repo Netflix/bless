@@ -4,12 +4,14 @@
 A sample client to invoke the BLESS Lambda function and save the signed SSH Certificate.
 
 Usage:
-  bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_usernames
+  bless_client.py region lambda_function_name lambda_function_version bastion_user bastion_user_ip remote_usernames
   bastion_ips bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>
 
     region: AWS region where your lambda is deployed.
 
     lambda_function_name: The AWS Lambda function's alias or ARN to invoke.
+
+    lambda_function_version: The AWS  Lambda function's version to invoke
 
     bastion_user: The user on the bastion, who is initiating the SSH request.
 
@@ -40,15 +42,15 @@ import boto3
 
 
 def main(argv):
-    if len(argv) < 9 or len(argv) > 10:
+    if len(argv) < 10 or len(argv) > 11:
         print(
-            'Usage: bless_client.py region lambda_function_name bastion_user bastion_user_ip '
+            'Usage: bless_client.py region lambda_function_name lambda_function_version bastion_user bastion_user_ip '
             'remote_usernames bastion_ips bastion_command <id_rsa.pub to sign> '
             '<output id_rsa-cert.pub> [kmsauth token]')
         return -1
 
-    region, lambda_function_name, bastion_user, bastion_user_ip, remote_usernames, bastion_ips, \
-        bastion_command, public_key_filename, certificate_filename = argv[:9]
+    region, lambda_function_name, lambda_function_version, bastion_user, bastion_user_ip, remote_usernames, bastion_ips, \
+        bastion_command, public_key_filename, certificate_filename = argv[:10]
 
     with open(public_key_filename, 'r') as f:
         public_key = f.read().strip()
@@ -65,7 +67,7 @@ def main(argv):
     print('Executing:')
     print('payload_json is: \'{}\''.format(payload_json))
     lambda_client = boto3.client('lambda', region_name=region)
-    response = lambda_client.invoke(FunctionName=lambda_function_name,
+    response = lambda_client.invoke(FunctionName=lambda_function_name, Qualifier=lambda_function_version,
                                     InvocationType='RequestResponse', LogType='None',
                                     Payload=payload_json)
     print('{}\n'.format(response['ResponseMetadata']))

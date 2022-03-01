@@ -4,11 +4,13 @@
 A sample client to invoke the BLESS Host SSH Cert Lambda function and save the signed SSH Certificate.
 
 Usage:
-  bless_client_host.py region lambda_function_name hostnames <id_rsa.pub to sign> <output id_rsa-cert.pub>
+  bless_client_host.py region lambda_function_name lambda_function_version hostnames <id_rsa.pub to sign> <output id_rsa-cert.pub>
 
     region: AWS region where your lambda is deployed.
 
     lambda_function_name: The AWS Lambda function's alias or ARN to invoke.
+
+    lambda_function_version: The AWS Lambda function's version to invoke.
 
     hostnames: Comma-separated list of hostname(s) to include in this host certificate.
 
@@ -28,14 +30,14 @@ import boto3
 
 
 def main(argv):
-    if len(argv) != 5:
+    if len(argv) != 6:
         print(
-            'Usage: bless_client_host.py region lambda_function_name hostnames <id_rsa.pub to sign> '
+            'Usage: bless_client_host.py region lambda_function_name lambda_function_version hostnames <id_rsa.pub to sign> '
             '<output id_rsa-cert.pub>')
         print(len(argv))
         return -1
 
-    region, lambda_function_name, hostnames, public_key_filename, certificate_filename = argv
+    region, lambda_function_name, lambda_function_version, hostnames, public_key_filename, certificate_filename = argv
 
     with open(public_key_filename, 'r') as f:
         public_key = f.read().strip()
@@ -47,7 +49,7 @@ def main(argv):
     print('Executing:')
     print('payload_json is: \'{}\''.format(payload_json))
     lambda_client = boto3.client('lambda', region_name=region)
-    response = lambda_client.invoke(FunctionName=lambda_function_name,
+    response = lambda_client.invoke(FunctionName=lambda_function_name, Qualifier=lambda_function_version,
                                     InvocationType='RequestResponse', LogType='None',
                                     Payload=payload_json)
     print('{}\n'.format(response['ResponseMetadata']))

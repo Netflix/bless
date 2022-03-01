@@ -155,7 +155,7 @@ from a system with access to the required [AWS Credentials](http://boto3.readthe
 This client is really just a proof of concept to validate that you have a functional lambda being called with valid
 IAM credentials. 
 
-    (venv) $ ./bless_client.py region lambda_function_name bastion_user bastion_user_ip remote_usernames bastion_source_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>
+    (venv) $ ./bless_client.py region lambda_function_name lambda_function_version bastion_user bastion_user_ip remote_usernames bastion_source_ip bastion_command <id_rsa.pub to sign> <output id_rsa-cert.pub>
 
 
 ## Verifying Certificates
